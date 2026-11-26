@@ -5,7 +5,7 @@ from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import Timestamps, pg_enum
+from app.models.columns import Timestamps, not_blank, pg_enum
 from app.models.enums import GoalType
 
 
@@ -23,7 +23,7 @@ class Measurable(Timestamps, Base):
     goal_max: Mapped[Decimal | None] = mapped_column(Numeric)
 
     __table_args__ = (
-        CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),
+        not_blank("name"),
         CheckConstraint(
             "(goal_type = 'between' AND goal_value IS NULL AND goal_min IS NOT NULL "
             "AND goal_max IS NOT NULL AND goal_min <= goal_max) "

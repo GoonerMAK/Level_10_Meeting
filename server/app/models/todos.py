@@ -1,10 +1,10 @@
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Text
+from sqlalchemy import Date, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import Timestamps, UtcTimestamp
+from app.models.columns import Timestamps, UtcTimestamp, not_blank
 
 
 class Todo(Timestamps, Base):
@@ -18,4 +18,4 @@ class Todo(Timestamps, Base):
     done_at: Mapped[datetime | None] = mapped_column(UtcTimestamp)
     source_issue_id: Mapped[str | None] = mapped_column(ForeignKey("issues.id", ondelete="SET NULL"), index=True)
 
-    __table_args__ = (CheckConstraint("length(trim(title)) > 0", name="title_not_blank"),)
+    __table_args__ = (not_blank("title"),)

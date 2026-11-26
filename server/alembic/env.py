@@ -25,13 +25,7 @@ def configure(connection: Connection | None = None) -> None:
     )
 
 
-def run_offline() -> None:
-    configure()
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-def run_sync_migrations(connection: Connection) -> None:
+def run_migrations(connection: Connection | None = None) -> None:
     configure(connection)
     with context.begin_transaction():
         context.run_migrations()
@@ -40,11 +34,11 @@ def run_sync_migrations(connection: Connection) -> None:
 async def run_online() -> None:
     engine = create_async_engine(settings.database_url)
     async with engine.connect() as connection:
-        await connection.run_sync(run_sync_migrations)
+        await connection.run_sync(run_migrations)
     await engine.dispose()
 
 
 if context.is_offline_mode():
-    run_offline()
+    run_migrations()
 else:
     asyncio.run(run_online())

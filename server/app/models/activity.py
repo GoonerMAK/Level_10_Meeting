@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.clock import utc_now
 from app.db.base import Base
-from app.models.columns import UtcTimestamp, pg_enum
+from app.models.columns import UtcTimestamp, not_blank, pg_enum
 from app.models.enums import AuditAction, AuditEntity
 
 
@@ -25,7 +25,7 @@ class ActivityLog(Base):
     changes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
 
     __table_args__ = (
-        CheckConstraint("length(trim(entity_label)) > 0", name="entity_label_not_blank"),
+        not_blank("entity_label"),
         CheckConstraint("jsonb_typeof(changes) = 'array'", name="changes_is_array"),
         Index("ix_activity_logs_entity", "entity", "entity_id"),
         Index("ix_activity_logs_team_created", "team_id", "created_at"),

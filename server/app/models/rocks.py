@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import Timestamps, pg_enum
+from app.models.columns import Timestamps, not_blank, pg_enum
 from app.models.enums import RockStatus
 
 
@@ -19,7 +19,7 @@ class Rock(Timestamps, Base):
     status: Mapped[RockStatus] = mapped_column(pg_enum(RockStatus, "rock_status"))
 
     __table_args__ = (
-        CheckConstraint("length(trim(title)) > 0", name="title_not_blank"),
+        not_blank("title"),
         CheckConstraint("quarter ~ '^[0-9]{4}-Q[1-4]$'", name="quarter_format"),
     )
 
@@ -33,4 +33,4 @@ class Milestone(Timestamps, Base):
     due_date: Mapped[date] = mapped_column(Date)
     done: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
-    __table_args__ = (CheckConstraint("length(trim(title)) > 0", name="title_not_blank"),)
+    __table_args__ = (not_blank("title"),)

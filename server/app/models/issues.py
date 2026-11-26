@@ -4,7 +4,7 @@ from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, SmallInteger, T
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import Timestamps, UtcTimestamp
+from app.models.columns import Timestamps, UtcTimestamp, not_blank
 
 
 class Issue(Timestamps, Base):
@@ -21,7 +21,7 @@ class Issue(Timestamps, Base):
     source_week_start: Mapped[date | None] = mapped_column(Date)
 
     __table_args__ = (
-        CheckConstraint("length(trim(title)) > 0", name="title_not_blank"),
+        not_blank("title"),
         CheckConstraint("priority BETWEEN 1 AND 5", name="priority_range"),
         CheckConstraint(
             "(solved_at IS NULL AND resolution_note IS NULL) "

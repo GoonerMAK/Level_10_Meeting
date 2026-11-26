@@ -2,7 +2,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import Timestamps, pg_enum
+from app.models.columns import Timestamps, not_blank, pg_enum
 from app.models.enums import UserRole
 
 
@@ -13,7 +13,7 @@ class Company(Timestamps, Base):
     name: Mapped[str] = mapped_column(Text)
     timezone: Mapped[str] = mapped_column(Text)
 
-    __table_args__ = (CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),)
+    __table_args__ = (not_blank("name"),)
 
 
 class Team(Timestamps, Base):
@@ -23,7 +23,7 @@ class Team(Timestamps, Base):
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
     name: Mapped[str] = mapped_column(Text)
 
-    __table_args__ = (CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),)
+    __table_args__ = (not_blank("name"),)
 
 
 class User(Timestamps, Base):
@@ -36,7 +36,7 @@ class User(Timestamps, Base):
     role: Mapped[UserRole] = mapped_column(pg_enum(UserRole, "user_role"))
 
     __table_args__ = (
-        CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),
+        not_blank("name"),
         CheckConstraint("email = lower(email) AND position('@' in email) > 1", name="email_format"),
     )
 
