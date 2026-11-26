@@ -9,7 +9,6 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.clock import utc_now
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
 from app.models import (
@@ -136,16 +135,11 @@ def build_rows(seed: Row) -> list[tuple[type[Base], list[Row]]]:
     ]
 
 
-async def upsert(session: AsyncSession, model: type[Base], rows: list[Row]) -> None:
+async def insert_missing(session: AsyncSession, model: type[Base], rows: list[Row]) -> None:
     if not rows:
         return
     primary_keys = [column.name for column in inspect(model).primary_key]
-    statement = insert(model).values(rows)
-    updatable = [name for name in rows[0] if name not in primary_keys]
-    statement = statement.on_conflict_do_update(
-        index_elements=primary_keys,
-        set_={**{name: statement.excluded[name] for name in updatable}, "updated_at": utc_now()},
-    )
+    statement = insert(model).values(rows).on_conflict_do_nothing(index_elements=primary_keys)
     await session.execute(statement)
 
 
@@ -154,7 +148,7 @@ async def seed_database(seed_path: Path) -> dict[str, int]:
     counts: dict[str, int] = {}
     async with SessionLocal() as session, session.begin():
         for model, rows in build_rows(seed):
-            await upsert(session, model, rows)
+            await insert_missing(session, model, rows)
             counts[model.__tablename__] = len(rows)
     return counts
 

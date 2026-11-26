@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
-from app.models import Base
+from app.models import Base, Issue
 from app.seed import seed_database
 
 
@@ -48,3 +48,31 @@ def test_seed_loads_and_can_run_again(migrated_database):
 
     expected, actual = asyncio.run(seed_twice_and_count())
     assert actual == expected
+
+
+def test_seed_rerun_keeps_changes_made_in_the_app(migrated_database):
+    async def change_data_then_reseed() -> Issue:
+        await seed_database(settings.seed_path)
+        async with SessionLocal() as session, session.begin():
+            seeded_issue = await session.get(Issue, "i5")
+            seeded_issue.solved_at = settings.app_now
+            seeded_issue.resolution_note = "Solved in the app"
+            session.add(
+                Issue(
+                    id="app_issue",
+                    team_id=seeded_issue.team_id,
+                    title=seeded_issue.title,
+                    owner_id=seeded_issue.owner_id,
+                    source_measurable_id=seeded_issue.source_measurable_id,
+                    source_week_start=seeded_issue.source_week_start,
+                )
+            )
+        await seed_database(settings.seed_path)
+        async with SessionLocal() as session, session.begin():
+            reseeded_issue = await session.get(Issue, "i5")
+            await session.delete(await session.get(Issue, "app_issue"))
+        await engine.dispose()
+        return reseeded_issue
+
+    reseeded_issue = asyncio.run(change_data_then_reseed())
+    assert reseeded_issue.resolution_note == "Solved in the app"
