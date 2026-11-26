@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.time import CompanyClock
-from app.core.clock import utc_now
+from app.core.clock import calendar_now
 from app.core.errors import NotFound
 from app.core.permissions import CurrentUser, ensure_can_change_team, ensure_can_read_team
 from app.models import Company, Issue, Measurable, Membership, Team, Todo, User
@@ -49,7 +49,7 @@ async def company_clock(session: AsyncSession, team_id: str) -> CompanyClock:
     )
     if timezone is None:
         raise NotFound("Team not found")
-    return CompanyClock(now=utc_now(), timezone=ZoneInfo(timezone))
+    return CompanyClock(now=calendar_now(), timezone=ZoneInfo(timezone))
 
 
 async def readable_team_clock(session: AsyncSession, current_user: CurrentUser, team_id: str) -> CompanyClock:
