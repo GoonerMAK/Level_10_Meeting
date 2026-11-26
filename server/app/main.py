@@ -5,7 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from app.core.errors import register_error_handlers
 from app.db.session import engine
+from app.modules.auth.router import router as auth_router
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -18,4 +20,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     yield
     await engine.dispose()
 
+
 app = FastAPI(title="Level 10 Meeting API", lifespan=lifespan)
+register_error_handlers(app)
+app.include_router(auth_router, prefix="/api")
