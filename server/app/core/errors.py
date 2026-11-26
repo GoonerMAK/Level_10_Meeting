@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any
 
@@ -36,11 +37,17 @@ class Conflict(AppError):
     code = "conflict"
 
 
-def error_response(status_code: int, code: str, message: str, fields: list[dict[str, str]] | None = None) -> JSONResponse:
+def error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    fields: list[dict[str, str]] | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> JSONResponse:
     error: dict[str, Any] = {"code": code, "message": message}
     if fields:
         error["fields"] = fields
-    return JSONResponse(status_code=status_code, content={"error": error})
+    return JSONResponse(status_code=status_code, content={"error": error}, headers=headers)
 
 
 def field_name(location: tuple[str | int, ...]) -> str:
@@ -60,4 +67,8 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def handle_http_error(_request: Request, error: HTTPException) -> JSONResponse:
         code = HTTPStatus(error.status_code).phrase.lower().replace(" ", "_")
-        return error_response(error.status_code, code, str(error.detail))
+        return error_response(error.status_code, code, str(error.detail), headers=error.headers)
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(_request: Request, _error: Exception) -> JSONResponse:
+        return error_response(HTTPStatus.INTERNAL_SERVER_ERROR, "internal_error", "Something went wrong on the server")
