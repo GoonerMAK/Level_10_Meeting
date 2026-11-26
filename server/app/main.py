@@ -17,8 +17,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     async with engine.connect() as connection:
         server_version = await connection.scalar(text("SHOW server_version"))
     logger.info("Database connection established (PostgreSQL %s)", server_version)
-    yield
-    await engine.dispose()
+    try:
+        yield
+    finally:
+        await engine.dispose()
 
 
 app = FastAPI(title="Level 10 Meeting API", lifespan=lifespan)
