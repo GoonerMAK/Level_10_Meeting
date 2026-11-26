@@ -13,12 +13,16 @@ class CurrentUser:
     team_ids: frozenset[str]
 
 
-def ensure_can_read_team(current_user: CurrentUser, team_id: str) -> None:
-    if current_user.role is not UserRole.ADMIN and team_id not in current_user.team_ids:
-        raise NotFound("Team not found")
+def can_read_team(current_user: CurrentUser, team_id: str) -> bool:
+    return current_user.role is UserRole.ADMIN or team_id in current_user.team_ids
 
 
-def ensure_can_change_team(current_user: CurrentUser, team_id: str) -> None:
-    ensure_can_read_team(current_user, team_id)
+def ensure_can_read_team(current_user: CurrentUser, team_id: str, resource: str = "Team") -> None:
+    if not can_read_team(current_user, team_id):
+        raise NotFound(f"{resource} not found")
+
+
+def ensure_can_change_team(current_user: CurrentUser, team_id: str, resource: str = "Team") -> None:
+    ensure_can_read_team(current_user, team_id, resource)
     if current_user.role is UserRole.OBSERVER:
         raise Forbidden("Observers can view this team but cannot change anything")

@@ -1,10 +1,15 @@
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, SmallInteger, Text, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.columns import Timestamps, UtcTimestamp, not_blank
+
+if TYPE_CHECKING:
+    from app.models.organization import User
+    from app.models.scorecard import Measurable
 
 
 class Issue(Timestamps, Base):
@@ -19,6 +24,9 @@ class Issue(Timestamps, Base):
     resolution_note: Mapped[str | None] = mapped_column(Text)
     source_measurable_id: Mapped[str | None] = mapped_column(ForeignKey("measurables.id"))
     source_week_start: Mapped[date | None] = mapped_column(Date)
+
+    owner: Mapped["User"] = relationship()
+    source_measurable: Mapped["Measurable | None"] = relationship()
 
     __table_args__ = (
         not_blank("title"),

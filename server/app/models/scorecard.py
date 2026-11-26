@@ -1,12 +1,16 @@
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.columns import Timestamps, not_blank, pg_enum
 from app.models.enums import GoalType
+
+if TYPE_CHECKING:
+    from app.models.organization import User
 
 
 class Measurable(Timestamps, Base):
@@ -21,6 +25,8 @@ class Measurable(Timestamps, Base):
     goal_value: Mapped[Decimal | None] = mapped_column(Numeric)
     goal_min: Mapped[Decimal | None] = mapped_column(Numeric)
     goal_max: Mapped[Decimal | None] = mapped_column(Numeric)
+
+    owner: Mapped["User"] = relationship()
 
     __table_args__ = (
         not_blank("name"),

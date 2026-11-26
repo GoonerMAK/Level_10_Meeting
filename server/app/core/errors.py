@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException
 class AppError(Exception):
     status_code = HTTPStatus.BAD_REQUEST
     code = "bad_request"
+    fields: list[dict[str, str]] | None = None
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -37,6 +38,15 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class InvalidInput(AppError):
+    status_code = HTTPStatus.UNPROCESSABLE_CONTENT
+    code = "invalid_input"
+
+    def __init__(self, message: str, field: str) -> None:
+        super().__init__(message)
+        self.fields = [{"field": field, "message": message}]
+
+
 def error_response(
     status_code: int,
     code: str,
@@ -57,7 +67,7 @@ def field_name(location: tuple[str | int, ...]) -> str:
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(_request: Request, error: AppError) -> JSONResponse:
-        return error_response(error.status_code, error.code, error.message)
+        return error_response(error.status_code, error.code, error.message, error.fields)
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(_request: Request, error: RequestValidationError) -> JSONResponse:
