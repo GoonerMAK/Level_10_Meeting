@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .claude/worktrees/
+.claude/settings.local.json
 node_modules/
 .next/

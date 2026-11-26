@@ -1,0 +1,32 @@
+{
+  "extraKnownMarketplaces": {
+    "mak-kit": {
+      "source": {
+        "source": "github",
+        "repo": "GoonerMAK/mak-kit"
+      }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "mak-kit@mak-kit": true,
+    "caveman@caveman": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ \"$CLAUDE_CODE_REMOTE\" = \"true\" ]; then bash tools/cloud-setup.sh > /tmp/cloud-setup.log 2>&1 && echo 'Cloud setup done: Postgres on 5432, migrated and seeded. Run tools/test.sh.' || echo 'Cloud setup failed, see /tmp/cloud-setup.log'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
