@@ -24,3 +24,18 @@ class MeetingSection(enum.StrEnum):
     SCORECARD = "scorecard"
     IDS = "ids"
     CONCLUDE = "conclude"
+
+
+class AuditEntity(enum.StrEnum):
+    SCORE = "score"
+    ISSUE = "issue"
+    TODO = "todo"
+    MEETING = "meeting"
+    MEETING_RATING = "meeting_rating"
+
+
+class AuditAction(enum.StrEnum):
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+    SOLVED = "solved"

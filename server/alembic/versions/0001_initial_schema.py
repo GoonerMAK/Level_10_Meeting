@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2026-11-26 19:21:29.594119
+Create Date: 2026-11-26 21:48:41.758527
 """
 from collections.abc import Sequence
 
@@ -50,17 +50,18 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('actor_id', sa.Text(), nullable=True),
     sa.Column('team_id', sa.Text(), nullable=True),
-    sa.Column('entity_type', sa.Text(), nullable=False),
+    sa.Column('entity', sa.Enum('score', 'issue', 'todo', 'meeting', 'meeting_rating', name='audit_entity'), nullable=False),
     sa.Column('entity_id', sa.Text(), nullable=False),
-    sa.Column('action', sa.Text(), nullable=False),
-    sa.Column('before', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.Column('after', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.CheckConstraint('length(trim(entity_type)) > 0 AND length(trim(action)) > 0', name=op.f('ck_activity_logs_labels_not_blank')),
+    sa.Column('entity_label', sa.Text(), nullable=False),
+    sa.Column('action', sa.Enum('created', 'updated', 'deleted', 'solved', name='audit_action'), nullable=False),
+    sa.Column('changes', postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'[]'::jsonb"), nullable=False),
+    sa.CheckConstraint("jsonb_typeof(changes) = 'array'", name=op.f('ck_activity_logs_changes_is_array')),
+    sa.CheckConstraint('length(trim(entity_label)) > 0', name=op.f('ck_activity_logs_entity_label_not_blank')),
     sa.ForeignKeyConstraint(['actor_id'], ['users.id'], name=op.f('fk_activity_logs_actor_id_users'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['team_id'], ['teams.id'], name=op.f('fk_activity_logs_team_id_teams'), ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_activity_logs'))
     )
-    op.create_index('ix_activity_logs_entity', 'activity_logs', ['entity_type', 'entity_id'], unique=False)
+    op.create_index('ix_activity_logs_entity', 'activity_logs', ['entity', 'entity_id'], unique=False)
     op.create_index('ix_activity_logs_team_created', 'activity_logs', ['team_id', 'created_at'], unique=False)
     op.create_table('measurables',
     sa.Column('id', sa.Text(), nullable=False),
@@ -244,5 +245,5 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_teams_company_id'), table_name='teams')
     op.drop_table('teams')
     op.drop_table('companies')
-    for enum_name in ("meeting_section", "rock_status", "goal_type", "user_role"):
+    for enum_name in ("audit_action", "audit_entity", "meeting_section", "rock_status", "goal_type", "user_role"):
         sa.Enum(name=enum_name).drop(op.get_bind(), checkfirst=True)
