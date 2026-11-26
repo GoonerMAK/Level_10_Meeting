@@ -16,7 +16,7 @@ class ActivityLog(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(UtcTimestamp, default=utc_now)
-    actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     team_id: Mapped[str | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"))
     entity: Mapped[AuditEntity] = mapped_column(pg_enum(AuditEntity, "audit_entity"))
     entity_id: Mapped[str] = mapped_column(Text)
