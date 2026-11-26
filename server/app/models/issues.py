@@ -4,10 +4,10 @@ from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, SmallInteger, T
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import UtcTimestamp
+from app.models.columns import Timestamps, UtcTimestamp
 
 
-class Issue(Base):
+class Issue(Timestamps, Base):
     __tablename__ = "issues"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -15,8 +15,6 @@ class Issue(Base):
     title: Mapped[str] = mapped_column(Text)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     priority: Mapped[int | None] = mapped_column(SmallInteger)
-    created_at: Mapped[datetime] = mapped_column(UtcTimestamp)
-    updated_at: Mapped[datetime | None] = mapped_column(UtcTimestamp)
     solved_at: Mapped[datetime | None] = mapped_column(UtcTimestamp)
     resolution_note: Mapped[str | None] = mapped_column(Text)
     source_measurable_id: Mapped[str | None] = mapped_column(ForeignKey("measurables.id"))

@@ -4,11 +4,11 @@ from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import pg_enum
+from app.models.columns import Timestamps, pg_enum
 from app.models.enums import RockStatus
 
 
-class Rock(Base):
+class Rock(Timestamps, Base):
     __tablename__ = "rocks"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -24,7 +24,7 @@ class Rock(Base):
     )
 
 
-class Milestone(Base):
+class Milestone(Timestamps, Base):
     __tablename__ = "milestones"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)

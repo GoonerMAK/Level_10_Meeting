@@ -1,15 +1,15 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import UtcTimestamp, pg_enum
+from app.models.columns import Timestamps, pg_enum
 from app.models.enums import GoalType
 
 
-class Measurable(Base):
+class Measurable(Timestamps, Base):
     __tablename__ = "measurables"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -33,13 +33,12 @@ class Measurable(Base):
     )
 
 
-class Score(Base):
+class Score(Timestamps, Base):
     __tablename__ = "scores"
 
     measurable_id: Mapped[str] = mapped_column(ForeignKey("measurables.id", ondelete="CASCADE"), primary_key=True)
     week_start: Mapped[date] = mapped_column(Date, primary_key=True)
     value: Mapped[Decimal] = mapped_column(Numeric)
-    updated_at: Mapped[datetime | None] = mapped_column(UtcTimestamp)
     updated_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
 
     __table_args__ = (CheckConstraint("extract(isodow from week_start) = 1", name="week_start_is_monday"),)

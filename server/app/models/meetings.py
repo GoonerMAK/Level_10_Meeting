@@ -4,11 +4,11 @@ from sqlalchemy import CheckConstraint, ForeignKey, ForeignKeyConstraint, Index,
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import UtcTimestamp, pg_enum
+from app.models.columns import Timestamps, UtcTimestamp, pg_enum
 from app.models.enums import MeetingSection
 
 
-class Meeting(Base):
+class Meeting(Timestamps, Base):
     __tablename__ = "meetings"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -30,7 +30,7 @@ class Meeting(Base):
     )
 
 
-class MeetingAttendee(Base):
+class MeetingAttendee(Timestamps, Base):
     __tablename__ = "meeting_attendees"
 
     meeting_id: Mapped[str] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
@@ -38,7 +38,7 @@ class MeetingAttendee(Base):
     joined_at: Mapped[datetime | None] = mapped_column(UtcTimestamp)
 
 
-class MeetingRating(Base):
+class MeetingRating(Timestamps, Base):
     __tablename__ = "meeting_ratings"
 
     meeting_id: Mapped[str] = mapped_column(Text, primary_key=True)

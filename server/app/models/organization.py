@@ -2,11 +2,11 @@ from sqlalchemy import CheckConstraint, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.columns import pg_enum
+from app.models.columns import Timestamps, pg_enum
 from app.models.enums import UserRole
 
 
-class Company(Base):
+class Company(Timestamps, Base):
     __tablename__ = "companies"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -16,7 +16,7 @@ class Company(Base):
     __table_args__ = (CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),)
 
 
-class Team(Base):
+class Team(Timestamps, Base):
     __tablename__ = "teams"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -26,7 +26,7 @@ class Team(Base):
     __table_args__ = (CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),)
 
 
-class User(Base):
+class User(Timestamps, Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -41,7 +41,7 @@ class User(Base):
     )
 
 
-class Membership(Base):
+class Membership(Timestamps, Base):
     __tablename__ = "memberships"
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)

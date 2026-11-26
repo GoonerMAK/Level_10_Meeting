@@ -5,6 +5,7 @@ from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Identity, Index,
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.clock import utc_now
 from app.db.base import Base
 from app.models.columns import UtcTimestamp, pg_enum
 from app.models.enums import AuditAction, AuditEntity
@@ -14,7 +15,7 @@ class ActivityLog(Base):
     __tablename__ = "activity_logs"
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(UtcTimestamp)
+    created_at: Mapped[datetime] = mapped_column(UtcTimestamp, default=utc_now)
     actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     team_id: Mapped[str | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"))
     entity: Mapped[AuditEntity] = mapped_column(pg_enum(AuditEntity, "audit_entity"))

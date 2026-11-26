@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2026-11-26 21:48:41.758527
+Create Date: 2026-11-26 23:03:42.262934
 """
 from collections.abc import Sequence
 
@@ -20,6 +20,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Text(), nullable=False),
     sa.Column('name', sa.Text(), nullable=False),
     sa.Column('timezone', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('length(trim(name)) > 0', name=op.f('ck_companies_name_not_blank')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_companies'))
     )
@@ -27,6 +29,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Text(), nullable=False),
     sa.Column('company_id', sa.Text(), nullable=False),
     sa.Column('name', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('length(trim(name)) > 0', name=op.f('ck_teams_name_not_blank')),
     sa.ForeignKeyConstraint(['company_id'], ['companies.id'], name=op.f('fk_teams_company_id_companies')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_teams'))
@@ -38,6 +42,8 @@ def upgrade() -> None:
     sa.Column('name', sa.Text(), nullable=False),
     sa.Column('email', sa.Text(), nullable=False),
     sa.Column('role', sa.Enum('admin', 'team_member', 'observer', name='user_role'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint("email = lower(email) AND position('@' in email) > 1", name=op.f('ck_users_email_format')),
     sa.CheckConstraint('length(trim(name)) > 0', name=op.f('ck_users_name_not_blank')),
     sa.ForeignKeyConstraint(['company_id'], ['companies.id'], name=op.f('fk_users_company_id_companies')),
@@ -73,6 +79,8 @@ def upgrade() -> None:
     sa.Column('goal_value', sa.Numeric(), nullable=True),
     sa.Column('goal_min', sa.Numeric(), nullable=True),
     sa.Column('goal_max', sa.Numeric(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint("(goal_type = 'between' AND goal_value IS NULL AND goal_min IS NOT NULL AND goal_max IS NOT NULL AND goal_min <= goal_max) OR (goal_type <> 'between' AND goal_value IS NOT NULL AND goal_min IS NULL AND goal_max IS NULL)", name=op.f('ck_measurables_goal_shape')),
     sa.CheckConstraint('length(trim(name)) > 0', name=op.f('ck_measurables_name_not_blank')),
     sa.ForeignKeyConstraint(['owner_id'], ['users.id'], name=op.f('fk_measurables_owner_id_users')),
@@ -89,6 +97,8 @@ def upgrade() -> None:
     sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('current_section', sa.Enum('scorecard', 'ids', 'conclude', name='meeting_section'), nullable=True),
     sa.Column('section_started_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('(ended_at IS NULL AND current_section IS NOT NULL AND section_started_at IS NOT NULL) OR (ended_at IS NOT NULL AND current_section IS NULL AND section_started_at IS NULL)', name=op.f('ck_meetings_active_has_section')),
     sa.CheckConstraint('ended_at IS NULL OR ended_at >= started_at', name=op.f('ck_meetings_ended_after_started')),
     sa.ForeignKeyConstraint(['facilitator_id'], ['users.id'], name=op.f('fk_meetings_facilitator_id_users')),
@@ -100,6 +110,8 @@ def upgrade() -> None:
     op.create_table('memberships',
     sa.Column('user_id', sa.Text(), nullable=False),
     sa.Column('team_id', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['team_id'], ['teams.id'], name=op.f('fk_memberships_team_id_teams'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_memberships_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('user_id', 'team_id', name=op.f('pk_memberships'))
@@ -112,6 +124,8 @@ def upgrade() -> None:
     sa.Column('owner_id', sa.Text(), nullable=False),
     sa.Column('quarter', sa.Text(), nullable=False),
     sa.Column('status', sa.Enum('on_track', 'off_track', 'complete', name='rock_status'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint("quarter ~ '^[0-9]{4}-Q[1-4]$'", name=op.f('ck_rocks_quarter_format')),
     sa.CheckConstraint('length(trim(title)) > 0', name=op.f('ck_rocks_title_not_blank')),
     sa.ForeignKeyConstraint(['owner_id'], ['users.id'], name=op.f('fk_rocks_owner_id_users')),
@@ -127,12 +141,12 @@ def upgrade() -> None:
     sa.Column('title', sa.Text(), nullable=False),
     sa.Column('owner_id', sa.Text(), nullable=False),
     sa.Column('priority', sa.SmallInteger(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('solved_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('resolution_note', sa.Text(), nullable=True),
     sa.Column('source_measurable_id', sa.Text(), nullable=True),
     sa.Column('source_week_start', sa.Date(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('(solved_at IS NULL AND resolution_note IS NULL) OR (solved_at IS NOT NULL AND resolution_note IS NOT NULL AND length(trim(resolution_note)) > 0)', name=op.f('ck_issues_solved_requires_note')),
     sa.CheckConstraint('(source_measurable_id IS NULL) = (source_week_start IS NULL)', name=op.f('ck_issues_source_complete')),
     sa.CheckConstraint('length(trim(title)) > 0', name=op.f('ck_issues_title_not_blank')),
@@ -152,6 +166,8 @@ def upgrade() -> None:
     sa.Column('meeting_id', sa.Text(), nullable=False),
     sa.Column('user_id', sa.Text(), nullable=False),
     sa.Column('joined_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['meeting_id'], ['meetings.id'], name=op.f('fk_meeting_attendees_meeting_id_meetings'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_meeting_attendees_user_id_users')),
     sa.PrimaryKeyConstraint('meeting_id', 'user_id', name=op.f('pk_meeting_attendees'))
@@ -162,6 +178,8 @@ def upgrade() -> None:
     sa.Column('title', sa.Text(), nullable=False),
     sa.Column('due_date', sa.Date(), nullable=False),
     sa.Column('done', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('length(trim(title)) > 0', name=op.f('ck_milestones_title_not_blank')),
     sa.ForeignKeyConstraint(['rock_id'], ['rocks.id'], name=op.f('fk_milestones_rock_id_rocks'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_milestones'))
@@ -171,8 +189,9 @@ def upgrade() -> None:
     sa.Column('measurable_id', sa.Text(), nullable=False),
     sa.Column('week_start', sa.Date(), nullable=False),
     sa.Column('value', sa.Numeric(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_by_id', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('extract(isodow from week_start) = 1', name=op.f('ck_scores_week_start_is_monday')),
     sa.ForeignKeyConstraint(['measurable_id'], ['measurables.id'], name=op.f('fk_scores_measurable_id_measurables'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['updated_by_id'], ['users.id'], name=op.f('fk_scores_updated_by_id_users')),
@@ -183,6 +202,8 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Text(), nullable=False),
     sa.Column('rating', sa.SmallInteger(), nullable=False),
     sa.Column('rated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('rating BETWEEN 1 AND 10', name=op.f('ck_meeting_ratings_rating_range')),
     sa.ForeignKeyConstraint(['meeting_id', 'user_id'], ['meeting_attendees.meeting_id', 'meeting_attendees.user_id'], name='fk_meeting_ratings_attendee', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('meeting_id', 'user_id', name=op.f('pk_meeting_ratings'))
@@ -196,7 +217,7 @@ def upgrade() -> None:
     sa.Column('done_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('source_issue_id', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('length(trim(title)) > 0', name=op.f('ck_todos_title_not_blank')),
     sa.ForeignKeyConstraint(['owner_id'], ['users.id'], name=op.f('fk_todos_owner_id_users')),
     sa.ForeignKeyConstraint(['source_issue_id'], ['issues.id'], name=op.f('fk_todos_source_issue_id_issues'), ondelete='SET NULL'),

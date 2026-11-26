@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,6 +12,7 @@ class Settings(BaseSettings):
 
     database_url: str
     seed_path: Path = REPO_ROOT / "assessment" / "seed.json"
+    app_now: datetime = datetime(2026, 11, 11, 15, 0, tzinfo=UTC)
 
 
 settings = Settings()

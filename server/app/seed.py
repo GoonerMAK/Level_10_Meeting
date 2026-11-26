@@ -9,6 +9,7 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import utc_now
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
 from app.models import (
@@ -141,13 +142,10 @@ async def upsert(session: AsyncSession, model: type[Base], rows: list[Row]) -> N
     primary_keys = [column.name for column in inspect(model).primary_key]
     statement = insert(model).values(rows)
     updatable = [name for name in rows[0] if name not in primary_keys]
-    if updatable:
-        statement = statement.on_conflict_do_update(
-            index_elements=primary_keys,
-            set_={name: statement.excluded[name] for name in updatable},
-        )
-    else:
-        statement = statement.on_conflict_do_nothing(index_elements=primary_keys)
+    statement = statement.on_conflict_do_update(
+        index_elements=primary_keys,
+        set_={**{name: statement.excluded[name] for name in updatable}, "updated_at": utc_now()},
+    )
     await session.execute(statement)
 
 
