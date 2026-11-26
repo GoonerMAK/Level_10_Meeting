@@ -6,13 +6,9 @@
 | Infra (Postgres, env) | `docker-compose.yml`, `.env.example` |
 | Server (uv, SQLAlchemy async) | `server/app/` |
 | Migrations | `server/alembic/versions/` |
-| Dev scripts, below | `tools/` |
+| Dev scripts | `tools/` |
 
-| Script | Does |
-|---|---|
-| `tools/db-up.sh` | Starts Postgres, waits until healthy |
-| `tools/db-migrate.sh` | `alembic upgrade head`, then `alembic check` for drift |
-| `tools/seed.sh` | Loads `seed.json`; safe to rerun |
+Run in order: `tools/db-up.sh` (start DB), `tools/db-migrate.sh` (migrate + drift check), `tools/seed.sh` (rerunnable).
 
 Rules:
 - Dev DB is container `level_10_meeting-db-1` on port 5434. Never stop other projects' containers on 5432 or 5433.
