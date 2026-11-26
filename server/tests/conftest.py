@@ -43,3 +43,26 @@ def migrated_database(alembic_config):
 
     asyncio.run(recreate_test_database())
     command.upgrade(alembic_config, "head")
+
+
+@pytest.fixture(scope="session")
+def seeded_database(migrated_database):
+    from app.core.config import settings
+    from app.db.session import engine
+    from app.seed import seed_database
+
+    async def seed() -> None:
+        await seed_database(settings.seed_path)
+        await engine.dispose()
+
+    asyncio.run(seed())
+
+
+@pytest.fixture
+def client(seeded_database):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as test_client:
+        yield test_client
