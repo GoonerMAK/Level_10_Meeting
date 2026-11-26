@@ -4,11 +4,11 @@
 |---|---|
 | Spec, seed, report format | `assessment/` |
 | Infra (Postgres, env) | `docker-compose.yml`, `.env.example` |
-| Server (uv, SQLAlchemy async) | `server/app/` |
+| Server (uv, FastAPI, SQLAlchemy async) | `server/app/` |
 | Migrations | `server/alembic/versions/` |
 | Dev scripts | `tools/` |
 
-Run in order: `tools/db-up.sh` (start DB), `tools/db-migrate.sh` (migrate + drift check), `tools/seed.sh` (rerunnable). Tests: `tools/test.sh` (own `level10_test` DB; CI runs the same).
+Run in order: `tools/db-up.sh` (start DB), `tools/db-migrate.sh` (migrate + drift check), `tools/seed.sh` (rerunnable), `tools/server.sh` (API on port 8000, reload). Tests: `tools/test.sh` (own `level10_test` DB; CI runs the same).
 
 Rules:
 - Dev DB is container `level_10_meeting-db-1` on port 5434. Never stop other projects' containers on 5432 or 5433.
