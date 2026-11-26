@@ -23,7 +23,7 @@ class Rock(Timestamps, Base):
     status: Mapped[RockStatus] = mapped_column(pg_enum(RockStatus, "rock_status"))
 
     owner: Mapped["User"] = relationship()
-    milestones: Mapped[list["Milestone"]] = relationship(order_by="Milestone.due_date")
+    milestones: Mapped[list["Milestone"]] = relationship(order_by="(Milestone.due_date, Milestone.id)")
 
     __table_args__ = (
         not_blank("title"),

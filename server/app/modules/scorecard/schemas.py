@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.calculations.scorecard import ScoreStatus
 from app.core.schemas import JsonNumber, UserRef
@@ -37,4 +37,4 @@ class Scorecard(BaseModel):
 
 
 class ScoreUpdate(BaseModel):
-    value: Decimal
+    value: Decimal = Field(max_digits=15, decimal_places=4)
