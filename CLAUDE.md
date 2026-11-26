@@ -6,7 +6,12 @@
 | Infra (Postgres, env) | `docker-compose.yml`, `.env.example` |
 | Server (uv, SQLAlchemy async) | `server/app/` |
 | Migrations | `server/alembic/versions/` |
+| Dev scripts, below | `tools/` |
 
-Setup: `docker compose up -d --wait`, then in `server/` run `uv run alembic upgrade head` and `uv run python -m app.seed`.
+| Script | Does |
+|---|---|
+| `tools/db-up.sh` | Starts Postgres, waits until healthy |
+| `tools/db-migrate.sh` | `alembic upgrade head`, then `alembic check` for drift |
+| `tools/seed.sh` | Loads `seed.json`; safe to rerun |
 
 Reply format: Leverage i-have-adhd skill and caveman ultra skill, cite code inline as plain `path:line` when needed; no [text](link), no #L.
