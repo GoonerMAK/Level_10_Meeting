@@ -1,9 +1,10 @@
 import asyncio
 from datetime import datetime, timedelta
 
+import asyncpg
 import pytest
 
-from conftest import execute_sql
+from conftest import TEST_DATABASE_URL, execute_sql
 
 START = "/api/teams/team_lead/meetings"
 
@@ -190,6 +191,31 @@ def test_a_clock_set_back_still_moves_on_and_ends_after_the_start(sign_in, fixed
     assert moved.status_code == ended.status_code == 200
     assert at(moved.json()["section_started_at"]) == at(meeting["started_at"])
     assert at(ended.json()["ended_at"]) == at(meeting["started_at"])
+
+
+@pytest.mark.anyio
+async def test_a_join_that_waits_on_the_end_is_refused(signed_in_clients):
+    async with signed_in_clients("u2", "u5") as clients:
+        meeting_id = (await clients["u2"].post(START)).json()["id"]
+        ending = await asyncpg.connect(TEST_DATABASE_URL.set(drivername="postgresql").render_as_string(hide_password=False))
+        try:
+            async with ending.transaction():
+                await ending.execute("SELECT 1 FROM meetings WHERE id = $1 FOR UPDATE", meeting_id)
+                join = asyncio.create_task(clients["u5"].post(f"/api/meetings/{meeting_id}/join"))
+                await asyncio.sleep(0.3)
+                await ending.execute(
+                    "UPDATE meetings SET ended_at = started_at, current_section = NULL, section_started_at = NULL "
+                    "WHERE id = $1",
+                    meeting_id,
+                )
+            joined = await join
+        finally:
+            await ending.close()
+        meeting = (await clients["u2"].get(f"/api/meetings/{meeting_id}")).json()
+
+    assert joined.status_code == 409
+    assert joined.json()["error"]["message"] == "This meeting has already ended"
+    assert [attendee["id"] for attendee in meeting["attendees"]] == ["u2"]
 
 
 @pytest.mark.parametrize(

@@ -77,7 +77,7 @@ async def join_meeting(session: AsyncSession, current_user: CurrentUser, meeting
 
 
 async def join_meeting_by_id(session: AsyncSession, current_user: CurrentUser, meeting_id: str) -> MeetingState:
-    meeting = await load_meeting(session, meeting_id)
+    meeting = await lock_meeting(session, meeting_id)
     ensure_running(meeting)
     joined = await session.scalar(
         insert(MeetingAttendee)
@@ -115,6 +115,7 @@ async def move_to_next_section(
 
 async def end_meeting(session: AsyncSession, current_user: CurrentUser, meeting_id: str) -> MeetingState:
     meeting = await get_facilitated_meeting(session, current_user, meeting_id)
+    await lock_meeting(session, meeting_id)
     ended = await session.scalar(
         update(Meeting)
         .where(Meeting.id == meeting_id, ACTIVE)
@@ -132,9 +133,7 @@ async def rate_meeting(session: AsyncSession, current_user: CurrentUser, meeting
     meeting = await get_readable_meeting(session, current_user, meeting_id)
     if current_user.role is UserRole.OBSERVER:
         raise Forbidden("Observers can follow the meeting but cannot rate it")
-    meeting = await session.scalar(
-        select(Meeting).where(Meeting.id == meeting_id).with_for_update().execution_options(populate_existing=True)
-    )
+    meeting = await lock_meeting(session, meeting_id)
     if not await is_attendee(session, meeting_id, current_user.id):
         raise Forbidden("Join the meeting before rating it")
     ensure_running(meeting)
@@ -178,6 +177,15 @@ def meeting_message(state: MeetingState | None) -> dict[str, Any]:
 
 async def load_meeting(session: AsyncSession, meeting_id: str) -> Meeting:
     meeting = await session.get(Meeting, meeting_id, populate_existing=True)
+    if meeting is None:
+        raise NotFound("Meeting not found")
+    return meeting
+
+
+async def lock_meeting(session: AsyncSession, meeting_id: str) -> Meeting:
+    meeting = await session.scalar(
+        select(Meeting).where(Meeting.id == meeting_id).with_for_update().execution_options(populate_existing=True)
+    )
     if meeting is None:
         raise NotFound("Meeting not found")
     return meeting
