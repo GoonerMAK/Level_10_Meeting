@@ -1,5 +1,27 @@
 # Level_10_Meeting
 
+## Tests
+
+```bash
+tools/test.sh
+```
+
+- Runs the server tests, the web unit tests, then the two-browser test, and stops at the first failure. Extra arguments go to pytest.
+- Needs Postgres running (`tools/db-up.sh`) and a role that can create databases. Nothing else needs to be started.
+
+**Fixtures**
+- Server tests rebuild their own `<db>_test` database once per run (migrate, then seed), and a check fails the run if any test leaves a seeded row changed.
+- The two-browser test rebuilds `<db>_e2e` the same way, then starts the API on port 8100 and a production build of the web app on port 3100, so it can run beside the dev servers. Your dev data is untouched.
+
+**Clock**
+- Server tests swap in a fixed clock at the seed's "now" (`APP_NOW`, default `2026-11-11T15:00:00Z`) and move it forward by hand when a rule depends on time passing.
+- The two-browser test uses the real ticking clock from `APP_NOW`. It never waits for a timer to run out, so nothing depends on how fast the machine is. Over time in the browser is covered by unit tests on the timer math.
+
+**Two-browser test** (`web/e2e/meeting.spec.ts`)
+- Finley (Team Member) and Gray (Observer) sign in on the sign-in page in separate browsers.
+- Finley starts the meeting; Gray joins and follows read-only. Each Next, a new Issue and Finley's rating reach Gray within 1.5 seconds. Ending shows both the summary.
+- A failure keeps a trace, a screenshot per browser and the page's state in `web/e2e/results/`. One trace from a deliberately broken run is committed in `web/e2e/failure-trace/`.
+
 ## Rules report
 
 ```bash
