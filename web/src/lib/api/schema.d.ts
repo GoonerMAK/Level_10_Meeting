@@ -752,6 +752,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Timezone */
+            timezone: string;
             /** Members */
             members: components["schemas"]["TeamMember"][];
             /** Todo Owners */

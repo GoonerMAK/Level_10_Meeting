@@ -35,3 +35,10 @@ def test_an_admin_on_the_team_is_marked_on_team(sign_in):
 
     assert {"id": "u1", "name": "Avery Admin", "role": "admin", "on_team": True} in owners
     assert "u5" not in [owner["id"] for owner in owners]
+
+
+def test_team_detail_names_the_company_time_zone(sign_in):
+    response = sign_in("u2").get("/api/teams/team_lead")
+
+    assert response.status_code == 200
+    assert response.json()["timezone"] == "America/Chicago"

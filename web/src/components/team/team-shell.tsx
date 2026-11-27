@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/error-state";
 import { AppHeader } from "@/components/header/app-header";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { AccessError } from "@/components/team/access-error";
+import { TeamProvider } from "@/components/team/team-context";
 import { errorMessage, isApiError } from "@/lib/api/errors";
 import { useTeam } from "@/lib/api/teams";
 import { useLiveTeam } from "@/lib/live/use-live-team";
@@ -35,7 +36,7 @@ function TeamFrame({ teamId, children }: { teamId: string; children: ReactNode }
     if (team.isError) {
       return <ErrorState message={errorMessage(team.error)} onRetry={() => void team.refetch()} />;
     }
-    return children;
+    return <TeamProvider team={team.data}>{children}</TeamProvider>;
   };
 
   return (
