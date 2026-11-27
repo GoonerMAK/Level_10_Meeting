@@ -11,6 +11,7 @@ from app.core.errors import register_error_handlers
 from app.db.session import engine
 from app.modules.auth.router import router as auth_router
 from app.modules.issues.router import router as issues_router
+from app.modules.live.router import router as live_router
 from app.modules.rocks.router import router as rocks_router
 from app.modules.scorecard.router import router as scorecard_router
 from app.modules.teams.router import router as teams_router
@@ -34,5 +35,5 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(title="Level 10 Meeting API", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret.get_secret_value(), max_age=SIGN_IN_SECONDS)
 register_error_handlers(app)
-for router in (auth_router, teams_router, scorecard_router, issues_router, todos_router, rocks_router):
+for router in (auth_router, teams_router, scorecard_router, issues_router, todos_router, rocks_router, live_router):
     app.include_router(router, prefix="/api")
