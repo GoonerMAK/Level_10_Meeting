@@ -3,7 +3,7 @@
 | Area | Path |
 |---|---|
 | Spec, seed, report format | `assessment/` |
-| Infra (Postgres, env) | `docker-compose.yml`, `.env.example` |
+| Infra (full stack, env) | `docker-compose.yml` (db, migrate, server, web), `compose.dev.yml` (publishes the DB for local tools), `.env.example` |
 | Server (uv, FastAPI, SQLAlchemy async) | `server/app/` |
 | Business rules (pure functions, brief 2.6) | `server/app/calculations/` |
 | Feature modules (router, schemas, service) | `server/app/modules/` |

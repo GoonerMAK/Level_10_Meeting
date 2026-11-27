@@ -1,5 +1,16 @@
 # Level_10_Meeting
 
+## Run it
+
+```bash
+docker compose up --build
+```
+
+- Open http://localhost:3000 and pick a seeded user. API docs: http://localhost:8000/docs.
+- No setup needed: every setting has a default. A `.env` (see `.env.example`) overrides any of them; `WEB_PORT` and `API_PORT` change the ports.
+- Start order: Postgres, then `migrate` (migrations + seed, then exits), then the API, then the web app. The seed only adds missing rows, so rerunning keeps your changes; `docker compose down -v` resets to the seed.
+- The session secret default is for local demos only.
+
 ## Rules report
 
 ```bash
