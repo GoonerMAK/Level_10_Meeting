@@ -3,7 +3,7 @@ from fastapi import APIRouter, Response, status
 from app.db.session import DbSession
 from app.modules.auth.dependencies import SignedInUser
 from app.modules.meetings import service
-from app.modules.meetings.schemas import MeetingState, NextSection, RatingUpdate
+from app.modules.meetings.schemas import MeetingState, MeetingSummary, NextSection, RatingUpdate
 
 router = APIRouter(tags=["meetings"])
 
@@ -28,6 +28,11 @@ async def read_active_meeting(team_id: str, session: DbSession, current_user: Si
 @router.get("/meetings/{meeting_id}")
 async def read_meeting(meeting_id: str, session: DbSession, current_user: SignedInUser) -> MeetingState:
     return await service.get_meeting(session, current_user, meeting_id)
+
+
+@router.get("/meetings/{meeting_id}/summary")
+async def read_meeting_summary(meeting_id: str, session: DbSession, current_user: SignedInUser) -> MeetingSummary:
+    return await service.get_meeting_summary(session, current_user, meeting_id)
 
 
 @router.post("/meetings/{meeting_id}/join")

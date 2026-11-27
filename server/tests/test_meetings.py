@@ -7,12 +7,17 @@ import pytest
 from conftest import TEST_DATABASE_URL, execute_sql
 
 START = "/api/teams/team_lead/meetings"
+MEETING_TEST_ROWS = """
+DELETE FROM meetings WHERE id NOT IN ('mt1', 'mt2');
+DELETE FROM todos WHERE title LIKE 'Summary %';
+DELETE FROM issues WHERE title LIKE 'Summary %';
+"""
 
 
 @pytest.fixture(autouse=True)
 def remove_started_meetings():
     yield
-    asyncio.run(execute_sql("DELETE FROM meetings WHERE id NOT IN ('mt1', 'mt2')"))
+    asyncio.run(execute_sql(MEETING_TEST_ROWS))
 
 
 def at(value):
@@ -336,3 +341,99 @@ def test_a_seeded_meeting_lists_its_ratings(sign_in):
     ratings = as_user(sign_in, "u2", "GET", "/api/meetings/mt2").json()["ratings"]
 
     assert [(entry["user"]["id"], entry["rating"]) for entry in ratings] == [("u1", 8), ("u2", 9), ("u3", 8), ("u4", 8)]
+
+
+SEEDED_SUMMARIES = {
+    "mt1": {
+        "scorecard_week": "2026-10-19",
+        "statuses": {"m1": "on_track", "m2": "on_track", "m3": "on_track", "m4": "on_track", "m5": "off_track"},
+        "issues_solved": ["i7"],
+        "todos_created": ["t20"],
+        "rating": 8.0,
+    },
+    "mt2": {
+        "scorecard_week": "2026-10-26",
+        "statuses": {"m1": "off_track", "m2": "on_track", "m3": "on_track", "m4": "off_track", "m5": "on_track"},
+        "issues_solved": ["i6"],
+        "todos_created": ["t30"],
+        "rating": 8.3,
+    },
+}
+
+
+def summary_of(sign_in, user_id, meeting_id):
+    return as_user(sign_in, user_id, "GET", f"/api/meetings/{meeting_id}/summary")
+
+
+def new_issue(sign_in, title):
+    return as_user(sign_in, "u2", "POST", "/api/teams/team_lead/issues", json={"title": title}).json()["id"]
+
+
+def new_todo(sign_in, issue_id, title):
+    return as_user(sign_in, "u2", "POST", f"/api/issues/{issue_id}/todos", json={"title": title, "owner_id": "u2"})
+
+
+def solve(sign_in, issue_id):
+    return as_user(sign_in, "u2", "POST", f"/api/issues/{issue_id}/solve", json={"resolution_note": "Agreed"})
+
+
+@pytest.mark.parametrize("meeting_id", ["mt1", "mt2"])
+def test_a_seeded_meeting_summary_matches_the_seed(sign_in, meeting_id):
+    expected = SEEDED_SUMMARIES[meeting_id]
+
+    response = summary_of(sign_in, "u5", meeting_id)
+
+    summary = response.json()
+    assert response.status_code == 200
+    assert summary["scorecard_week"] == expected["scorecard_week"]
+    assert {row["id"]: row["status"] for row in summary["measurables"]} == expected["statuses"]
+    assert [issue["id"] for issue in summary["issues_solved"]] == expected["issues_solved"]
+    assert [todo["id"] for todo in summary["todos_created"]] == expected["todos_created"]
+    assert sorted(attendee["id"] for attendee in summary["attendees"]) == ["u1", "u2", "u3", "u4", "u5"]
+    assert summary["rating"] == expected["rating"]
+
+
+def test_a_summary_counts_what_happened_from_the_start_to_the_end(sign_in, fixed_clock):
+    discussed = new_issue(sign_in, "Summary discussed")
+    new_todo(sign_in, discussed, "Summary before the start")
+    fixed_clock.advance(timedelta(seconds=1))
+    meeting_id = start(sign_in, "u2").json()["id"]
+    new_todo(sign_in, discussed, "Summary at the start")
+    fixed_clock.advance(timedelta(minutes=10))
+    solve(sign_in, discussed)
+    new_todo(sign_in, discussed, "Summary at the end")
+    as_user(sign_in, "u2", "POST", f"/api/meetings/{meeting_id}/end")
+    fixed_clock.advance(timedelta(seconds=1))
+    late = new_issue(sign_in, "Summary after the end")
+    new_todo(sign_in, late, "Summary after the end")
+    solve(sign_in, late)
+
+    summary = summary_of(sign_in, "u2", meeting_id).json()
+
+    assert summary["scorecard_week"] == "2026-11-02"
+    assert [issue["id"] for issue in summary["issues_solved"]] == [discussed]
+    assert [todo["title"] for todo in summary["todos_created"]] == ["Summary at the start", "Summary at the end"]
+    assert summary["todos_created"][0]["owner"] == {"id": "u2", "name": "Blake Brooks"}
+    assert [attendee["id"] for attendee in summary["attendees"]] == ["u2"]
+
+
+def test_a_meeting_nobody_rated_has_no_score(sign_in):
+    meeting_id = in_conclude(sign_in)
+    as_user(sign_in, "u2", "POST", f"/api/meetings/{meeting_id}/end")
+
+    summary = summary_of(sign_in, "u2", meeting_id).json()
+
+    assert (summary["rating"], summary["ratings"]) == (None, [])
+
+
+def test_a_running_meeting_has_no_summary_yet(sign_in):
+    meeting_id = start(sign_in, "u2").json()["id"]
+
+    response = summary_of(sign_in, "u2", meeting_id)
+
+    assert response.status_code == 409
+    assert response.json()["error"]["message"] == "This meeting is still running. Its summary is ready once it ends"
+
+
+def test_a_team_member_of_another_team_cannot_read_the_summary(sign_in):
+    assert summary_of(sign_in, "u6", "mt1").status_code == 404
