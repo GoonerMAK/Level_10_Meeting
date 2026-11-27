@@ -43,13 +43,17 @@ async def get_team_with_members(
     return team, members.all()
 
 
-async def company_clock(session: AsyncSession, team_id: str) -> CompanyClock:
+async def company_timezone(session: AsyncSession, team_id: str) -> ZoneInfo:
     timezone = await session.scalar(
         select(Company.timezone).join(Team, Team.company_id == Company.id).where(Team.id == team_id)
     )
     if timezone is None:
         raise NotFound("Team not found")
-    return CompanyClock(now=calendar_now(), timezone=ZoneInfo(timezone))
+    return ZoneInfo(timezone)
+
+
+async def company_clock(session: AsyncSession, team_id: str) -> CompanyClock:
+    return CompanyClock(now=calendar_now(), timezone=await company_timezone(session, team_id))
 
 
 async def readable_team_clock(session: AsyncSession, current_user: CurrentUser, team_id: str) -> CompanyClock:

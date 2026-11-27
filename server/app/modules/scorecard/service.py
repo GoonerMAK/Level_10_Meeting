@@ -58,7 +58,7 @@ async def get_scorecard(session: AsyncSession, current_user: CurrentUser, team_i
             name=measurable.name,
             owner=UserRef.model_validate(measurable.owner),
             unit=measurable.unit,
-            goal=Goal(type=measurable.goal_type, value=measurable.goal_value, min=measurable.goal_min, max=measurable.goal_max),
+            goal=Goal.from_measurable(measurable),
             cells=[score_cell(measurable, week, values.get((measurable.id, week)), clock) for week in weeks],
         )
         for measurable in measurables
