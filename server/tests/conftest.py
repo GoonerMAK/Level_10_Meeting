@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
@@ -8,9 +9,16 @@ import pytest
 from dotenv import dotenv_values
 from sqlalchemy.engine import make_url
 
-TEST_DATABASE_NAME = "level10_test"
 SERVER_DIR = Path(__file__).resolve().parents[1]
 REPO_ENV_FILE = SERVER_DIR.parent / ".env"
+
+
+def checkout_database_name() -> str:
+    checkout = hashlib.sha1(str(SERVER_DIR).lower().encode()).hexdigest()[:8]
+    return os.environ.get("TEST_DATABASE_NAME") or f"level10_test_{checkout}"
+
+
+TEST_DATABASE_NAME = checkout_database_name()
 
 
 def dev_database_url() -> str:

@@ -13,6 +13,8 @@ from app.core.clock import utc_now
 from app.core.errors import Conflict, NotFound
 from app.core.permissions import CurrentUser
 from app.models import Issue, Measurable
+from app.models.enums import AuditAction, AuditEntity
+from app.modules.activity.service import Changed, record
 from app.modules.issues.schemas import IssueState
 from app.modules.live.hub import publish_change
 from app.modules.scorecard.service import ensure_scorecard_week, get_changeable_measurable, get_score_value
@@ -51,6 +53,7 @@ async def create_issue(
     await get_changeable_team(session, current_user, team_id)
     issue = Issue(id=str(uuid4()), team_id=team_id, title=title, owner_id=current_user.id, priority=priority)
     session.add(issue)
+    record_issue(session, current_user, issue, AuditAction.CREATED, [("title", None, title), ("priority", None, priority)])
     await session.commit()
     await publish_change(team_id, "issues")
     return await load_issue(session, issue.id)
@@ -96,8 +99,34 @@ async def insert_score_issue(
         .returning(Issue.id)
     )
     created_id = await session.scalar(statement)
+    if created_id is not None:
+        record(
+            session,
+            user_id=current_user.id,
+            team_id=measurable.team_id,
+            entity=AuditEntity.ISSUE,
+            entity_id=created_id,
+            label=score_issue_title(measurable.name, week_start, today),
+            action=AuditAction.CREATED,
+            changes=[("source", None, f"{measurable.id}:{week_start}")],
+        )
     await session.commit()
     return created_id
+
+
+def record_issue(
+    session: AsyncSession, current_user: CurrentUser, issue: Issue, action: AuditAction, changes: list[Changed]
+) -> None:
+    record(
+        session,
+        user_id=current_user.id,
+        team_id=issue.team_id,
+        entity=AuditEntity.ISSUE,
+        entity_id=issue.id,
+        label=issue.title,
+        action=action,
+        changes=changes,
+    )
 
 
 async def find_open_score_issue_id(session: AsyncSession, measurable_id: str, week_start: date) -> str | None:
@@ -112,6 +141,8 @@ async def find_open_score_issue_id(session: AsyncSession, measurable_id: str, we
 
 async def set_priority(session: AsyncSession, current_user: CurrentUser, issue_id: str, priority: int | None) -> Issue:
     issue = await get_changeable_open_issue(session, current_user, issue_id)
+    if issue.priority != priority:
+        record_issue(session, current_user, issue, AuditAction.UPDATED, [("priority", issue.priority, priority)])
     issue.priority = priority
     await session.commit()
     await publish_change(issue.team_id, "issues")
@@ -122,6 +153,7 @@ async def solve_issue(session: AsyncSession, current_user: CurrentUser, issue_id
     issue = await get_changeable_open_issue(session, current_user, issue_id)
     issue.solved_at = utc_now()
     issue.resolution_note = resolution_note
+    record_issue(session, current_user, issue, AuditAction.SOLVED, [("resolution_note", None, resolution_note)])
     await session.commit()
     await publish_change(issue.team_id, "issues")
     return await load_issue(session, issue_id)

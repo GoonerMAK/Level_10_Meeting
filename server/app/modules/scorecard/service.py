@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.calculations.issues import score_issue_title
 from app.calculations.scorecard import score_status
 from app.calculations.time import CompanyClock
 from app.core.clock import utc_now
@@ -13,6 +14,8 @@ from app.core.errors import InvalidInput
 from app.core.permissions import CurrentUser
 from app.core.schemas import UserRef
 from app.models import Measurable, Score
+from app.models.enums import AuditAction, AuditEntity
+from app.modules.activity.service import record
 from app.modules.live.hub import publish_change
 from app.modules.scorecard.schemas import Goal, MeasurableRow, Scorecard, ScoreCell
 from app.modules.teams.service import company_clock, get_changeable_row, readable_team_clock
@@ -72,6 +75,7 @@ async def set_score(
     measurable = await get_changeable_measurable(session, current_user, measurable_id)
     clock = await company_clock(session, measurable.team_id)
     ensure_scorecard_week(clock, week_start)
+    previous = await get_score_value(session, measurable_id, week_start)
     statement = insert(Score).values(
         measurable_id=measurable_id, week_start=week_start, value=value, updated_by_id=current_user.id
     )
@@ -80,6 +84,16 @@ async def set_score(
             index_elements=[Score.measurable_id, Score.week_start],
             set_={"value": value, "updated_by_id": current_user.id, "updated_at": utc_now()},
         )
+    )
+    record(
+        session,
+        user_id=current_user.id,
+        team_id=measurable.team_id,
+        entity=AuditEntity.SCORE,
+        entity_id=f"{measurable_id}:{week_start}",
+        label=score_issue_title(measurable.name, week_start, clock.today),
+        action=AuditAction.CREATED if previous is None else AuditAction.UPDATED,
+        changes=[("value", previous, value)],
     )
     await session.commit()
     await publish_change(measurable.team_id, "scorecard")

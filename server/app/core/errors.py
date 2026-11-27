@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any
@@ -10,9 +9,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException
 
+from app.core.logs import REQUEST_ID_HEADER, logger
 from app.core.messages import DATA_RULES, FIELD_MESSAGES, UNKNOWN_LINK, UNKNOWN_RULE, DataRule, bad_value
-
-logger = logging.getLogger("uvicorn.error")
 
 
 class AppError(Exception):
@@ -93,29 +91,41 @@ def broken_data_rule(error: IntegrityError) -> DataRule:
     return UNKNOWN_RULE
 
 
+def remember_error_code(request: Request, code: str) -> None:
+    request.state.error_code = code
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
-    async def handle_app_error(_request: Request, error: AppError) -> JSONResponse:
+    async def handle_app_error(request: Request, error: AppError) -> JSONResponse:
+        remember_error_code(request, error.code)
         return error_response(error.status_code, error.code, error.message, error.fields)
 
     @app.exception_handler(RequestValidationError)
-    async def handle_validation_error(_request: Request, error: RequestValidationError) -> JSONResponse:
+    async def handle_validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+        remember_error_code(request, "invalid_input")
         fields = plain_fields(error)
         message = fields[0]["message"] if len(fields) == 1 else "Some fields are invalid"
         return error_response(HTTPStatus.UNPROCESSABLE_CONTENT, "invalid_input", message, fields)
 
     @app.exception_handler(IntegrityError)
-    async def handle_broken_data_rule(_request: Request, error: IntegrityError) -> JSONResponse:
+    async def handle_broken_data_rule(request: Request, error: IntegrityError) -> JSONResponse:
         rule = broken_data_rule(error)
         code = "conflict" if rule.status is HTTPStatus.CONFLICT else "invalid_input"
+        remember_error_code(request, code)
         fields = [{"field": rule.field, "message": rule.message}] if rule.field else None
         return error_response(rule.status, code, rule.message, fields)
 
     @app.exception_handler(HTTPException)
-    async def handle_http_error(_request: Request, error: HTTPException) -> JSONResponse:
+    async def handle_http_error(request: Request, error: HTTPException) -> JSONResponse:
         code = HTTPStatus(error.status_code).phrase.lower().replace(" ", "_")
+        remember_error_code(request, code)
         return error_response(error.status_code, code, str(error.detail), headers=error.headers)
 
     @app.exception_handler(Exception)
-    async def handle_unexpected_error(_request: Request, _error: Exception) -> JSONResponse:
-        return error_response(HTTPStatus.INTERNAL_SERVER_ERROR, "internal_error", "Something went wrong on the server")
+    async def handle_unexpected_error(request: Request, _error: Exception) -> JSONResponse:
+        current_id = getattr(request.state, "request_id", None)
+        headers = {REQUEST_ID_HEADER: current_id} if current_id else None
+        return error_response(
+            HTTPStatus.INTERNAL_SERVER_ERROR, "internal_error", "Something went wrong on the server", headers=headers
+        )
