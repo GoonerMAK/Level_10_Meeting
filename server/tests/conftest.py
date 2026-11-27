@@ -32,6 +32,15 @@ async def recreate_test_database() -> None:
         await connection.close()
 
 
+async def execute_sql(statement: str) -> None:
+    url = TEST_DATABASE_URL.set(drivername="postgresql")
+    connection = await asyncpg.connect(url.render_as_string(hide_password=False))
+    try:
+        await connection.execute(statement)
+    finally:
+        await connection.close()
+
+
 @pytest.fixture(scope="session")
 def alembic_config():
     from alembic.config import Config
@@ -98,6 +107,7 @@ def sign_in(client):
 def signed_in_clients(seeded_database):
     import httpx2
 
+    from app.db.session import engine
     from app.main import app
 
     @asynccontextmanager
@@ -111,5 +121,6 @@ def signed_in_clients(seeded_database):
                 assert response.status_code == 200
                 clients[user_id] = client
             yield clients
+        await engine.dispose()
 
     return open_clients
