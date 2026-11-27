@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
@@ -143,10 +143,10 @@ async def insert_missing(session: AsyncSession, model: type[Base], rows: list[Ro
     await session.execute(statement)
 
 
-async def seed_database(seed_path: Path) -> dict[str, int]:
+async def seed_database(seed_path: Path, sessions: async_sessionmaker[AsyncSession] = SessionLocal) -> dict[str, int]:
     seed = json.loads(seed_path.read_text(encoding="utf-8"))
     counts: dict[str, int] = {}
-    async with SessionLocal() as session, session.begin():
+    async with sessions() as session, session.begin():
         for model, rows in build_rows(seed):
             await insert_missing(session, model, rows)
             counts[model.__tablename__] = len(rows)
