@@ -1,0 +1,11 @@
+export type TeamData = "scorecard" | "issues" | "todos";
+
+export const queryKeys = {
+  me: ["me"] as const,
+  signInChoices: ["sign-in-choices"] as const,
+  teams: ["teams"] as const,
+  team: (teamId: string) => ["team", teamId] as const,
+  teamDetail: (teamId: string) => ["team", teamId, "detail"] as const,
+  teamData: (teamId: string, what: TeamData) => ["team", teamId, what] as const,
+  activeMeeting: (teamId: string) => ["team", teamId, "meeting"] as const,
+};
