@@ -1,6 +1,7 @@
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from sqlalchemy import text
@@ -9,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.core.clock import TickingClock, use_clock
 from app.core.config import settings
 from app.core.errors import register_error_handlers
-from app.db.clock import load_clock_start
+from app.db.clock import keep_saving_app_time, load_app_time, save_app_time
 from app.db.session import engine
 from app.modules.auth.router import router as auth_router
 from app.modules.auth.service import SIGN_IN_IDLE_SECONDS
@@ -28,11 +29,17 @@ logger = logging.getLogger("uvicorn.error")
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     async with engine.connect() as connection:
         server_version = await connection.scalar(text("SHOW server_version"))
-        use_clock(TickingClock(settings.app_now, await load_clock_start(connection, settings.app_now)))
+        clock = TickingClock(await load_app_time(connection, settings.app_now))
+    use_clock(clock)
     logger.info("Database connection established (PostgreSQL %s)", server_version)
+    saving = asyncio.create_task(keep_saving_app_time(settings.app_now, clock))
     try:
         yield
     finally:
+        saving.cancel()
+        with suppress(asyncio.CancelledError):
+            await saving
+        await save_app_time(settings.app_now, clock)
         await engine.dispose()
 
 

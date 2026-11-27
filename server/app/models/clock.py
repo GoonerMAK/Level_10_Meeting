@@ -6,8 +6,8 @@ from app.db.base import Base
 from app.models.columns import UtcTimestamp
 
 
-class ClockStart(Base):
-    __tablename__ = "clock_starts"
+class AppClock(Base):
+    __tablename__ = "app_clocks"
 
     app_now: Mapped[datetime] = mapped_column(UtcTimestamp, primary_key=True)
-    started_at: Mapped[datetime] = mapped_column(UtcTimestamp)
+    reached_at: Mapped[datetime] = mapped_column(UtcTimestamp)

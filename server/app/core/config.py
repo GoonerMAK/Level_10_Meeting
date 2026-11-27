@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVER_ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     web_origin: str = "http://localhost:3000"
     seed_path: Path = REPO_ROOT / "assessment" / "seed.json"
     app_now: datetime = datetime(2026, 11, 11, 15, 0, tzinfo=UTC)
+
+    @field_validator("app_now")
+    @classmethod
+    def read_app_now_as_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 settings = Settings()
