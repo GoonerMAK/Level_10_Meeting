@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "./api/errors";
-import { formatDate, formatDateTime, formatGoal, formatQuarter, formatValue } from "./format";
+import { formatDate, formatDateTime, formatDuration, formatGoal, formatQuarter, formatRating, formatValue } from "./format";
 import { splitServerErrors } from "./forms";
 import { scoreValueSchema, toPriority, toPriorityChoice } from "./validation";
 
@@ -64,5 +64,19 @@ describe("form helpers", () => {
     expect(toPriority("5")).toBe(5);
     expect(toPriorityChoice(null)).toBe("none");
     expect(toPriorityChoice(3)).toBe("3");
+  });
+});
+
+describe("meeting summary formats", () => {
+  it("shows a rating to one decimal", () => {
+    expect(formatRating(8)).toBe("8.0");
+    expect(formatRating(7.5)).toBe("7.5");
+  });
+
+  it("shows how long a meeting ran in minutes, then hours", () => {
+    expect(formatDuration("2026-11-11T15:00:00Z", "2026-11-11T15:00:20Z")).toBe("Under 1 min");
+    expect(formatDuration("2026-11-11T15:00:00Z", "2026-11-11T15:47:20Z")).toBe("47 min");
+    expect(formatDuration("2026-11-11T15:00:00Z", "2026-11-11T16:00:00Z")).toBe("1 h");
+    expect(formatDuration("2026-11-11T15:00:00Z", "2026-11-11T16:15:00Z")).toBe("1 h 15 min");
   });
 });

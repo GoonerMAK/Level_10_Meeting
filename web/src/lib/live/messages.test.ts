@@ -11,6 +11,7 @@ const meeting: MeetingState = {
   facilitator: { id: "user-1", name: "Ada" },
   attendees: [{ id: "user-1", name: "Ada" }],
   ratings: [],
+  rating: null,
   started_at: "2026-11-11T15:00:00Z",
   ended_at: null,
   section: "ids",
@@ -41,11 +42,12 @@ describe("parseLiveMessage", () => {
 });
 
 describe("applyLiveMessage", () => {
-  it("refetches only the team data that changed", async () => {
+  it("refetches only the team data that changed, and the meeting's summary so far", async () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(queryKeys.teamData("team-1", "issues"), []);
     queryClient.setQueryData(queryKeys.teamData("team-1", "todos"), []);
     queryClient.setQueryData(queryKeys.teamData("team-2", "issues"), []);
+    queryClient.setQueryData(queryKeys.meetingSummary("team-1", "meeting-1", "so-far"), {});
 
     await applyLiveMessage({ queryClient, teamId: "team-1", message: { type: "changed", what: "issues" } });
 
@@ -53,6 +55,7 @@ describe("applyLiveMessage", () => {
     expect(isInvalidated(queryKeys.teamData("team-1", "issues"))).toBe(true);
     expect(isInvalidated(queryKeys.teamData("team-1", "todos"))).toBe(false);
     expect(isInvalidated(queryKeys.teamData("team-2", "issues"))).toBe(false);
+    expect(isInvalidated(queryKeys.meetingSummary("team-1", "meeting-1", "so-far"))).toBe(true);
   });
 
   it("stores the pushed meeting state, including when the meeting ends", async () => {

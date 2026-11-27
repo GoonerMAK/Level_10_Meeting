@@ -49,7 +49,21 @@ export function formatDateTime(iso: string, timeZone: string): string {
   }).format(new Date(iso));
 }
 
-const calendarDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+export const formatRating = (rating: number): string => rating.toFixed(1);
+
+export function formatDuration(startIso: string, endIso: string): string {
+  const minutes = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 60_000);
+  const hours = Math.floor(minutes / 60);
+  if (minutes < 1) {
+    return "Under 1 min";
+  }
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+  return minutes % 60 === 0 ? `${hours} h` : `${hours} h ${minutes % 60} min`;
+}
+
+const calendarDate =new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 export const formatDate = (isoDate: string): string => calendarDate.format(new Date(`${isoDate}T00:00:00Z`));
 

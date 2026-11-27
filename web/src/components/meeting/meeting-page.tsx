@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -9,19 +8,19 @@ import { IssueDrawer } from "@/components/issues/issue-drawer";
 import { IssuesSection } from "@/components/issues/issues-section";
 import { AgendaSteps } from "@/components/meeting/agenda-steps";
 import { AttendeeList } from "@/components/meeting/attendee-list";
+import { ConcludeSection } from "@/components/meeting/conclude-section";
 import { FacilitatorControls } from "@/components/meeting/facilitator-controls";
+import { MeetingSummaryView } from "@/components/meeting/meeting-summary";
 import { SectionTimer } from "@/components/meeting/section-timer";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { ScorecardSection } from "@/components/scorecard/scorecard-section";
 import { useTeamContext } from "@/components/team/team-context";
-import { TodosSection } from "@/components/todos/todos-section";
 import { Button } from "@/components/ui/button";
 import type { MeetingState } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
 import { useJoinMeeting, useStartMeeting } from "@/lib/api/meetings";
 import { useActiveMeeting } from "@/lib/api/teams";
 import { SECTION_LABELS, type MeetingSection } from "@/lib/meeting-clock";
-import { teamPath } from "@/lib/routes";
 
 export function MeetingPage() {
   const { teamId } = useTeamContext();
@@ -48,8 +47,9 @@ export function MeetingPage() {
         />
       );
     }
-    if (meeting.data || seenMeetingId) {
-      return <MeetingEnded />;
+    const endedMeetingId = meeting.data?.id ?? seenMeetingId;
+    if (endedMeetingId) {
+      return <MeetingSummaryView meetingId={endedMeetingId} />;
     }
     return <NoMeeting />;
   };
@@ -94,36 +94,24 @@ function MeetingRoom({ meeting, section, startedAt, endsAt }: MeetingRoomProps) 
         </div>
         <AttendeeList meeting={meeting} meId={me.id} />
       </div>
-      <SectionContent section={section} />
+      <SectionContent meeting={meeting} section={section} />
     </div>
   );
 }
 
-function SectionContent({ section }: { section: MeetingSection }) {
+function SectionContent({ meeting, section }: { meeting: MeetingState; section: MeetingSection }) {
   switch (section) {
     case "scorecard":
       return <ScorecardSection />;
     case "ids":
       return <IssuesSection />;
     case "conclude":
-      return <TodosSection />;
+      return <ConcludeSection meeting={meeting} />;
     default: {
       const exhaustive: never = section;
       return exhaustive;
     }
   }
-}
-
-function MeetingEnded() {
-  const { teamId } = useTeamContext();
-  return (
-    <div className="flex flex-col items-start gap-3 rounded-lg border bg-card p-6">
-      <h1 className="text-2xl font-semibold">The meeting has ended</h1>
-      <Button asChild variant="outline">
-        <Link href={teamPath(teamId)}>Back to the team</Link>
-      </Button>
-    </div>
-  );
 }
 
 function NoMeeting() {

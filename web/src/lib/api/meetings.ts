@@ -4,7 +4,7 @@ import { skipToken, useMutation, useQuery, useQueryClient, type QueryClient } fr
 
 import { api, type MeetingState, type Schemas } from "./client";
 import { readData } from "./errors";
-import { queryKeys } from "./query-keys";
+import { queryKeys, type SummaryStage } from "./query-keys";
 
 type MeetingSection = Schemas["MeetingSection"];
 
@@ -52,6 +52,20 @@ export const useNextSection = (teamId: string) =>
         params: { path: { meeting_id: meetingId } },
         body: { from_section: fromSection },
       }),
+    ),
+  );
+
+export const useMeetingSummary = (teamId: string, meetingId: string, stage: SummaryStage) =>
+  useQuery({
+    queryKey: queryKeys.meetingSummary(teamId, meetingId, stage),
+    queryFn: () =>
+      readData(api.GET("/api/meetings/{meeting_id}/summary", { params: { path: { meeting_id: meetingId } } })),
+  });
+
+export const useRateMeeting = (teamId: string) =>
+  useMeetingMutation(teamId, ({ meetingId, rating }: { meetingId: string; rating: number }) =>
+    readData(
+      api.PUT("/api/meetings/{meeting_id}/rating", { params: { path: { meeting_id: meetingId } }, body: { rating } }),
     ),
   );
 

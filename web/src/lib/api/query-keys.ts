@@ -1,5 +1,6 @@
 export type TeamData = "scorecard" | "issues" | "todos";
 export type IssueStatus = "open" | "solved";
+export type SummaryStage = "so-far" | "final";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -11,5 +12,8 @@ export const queryKeys = {
   issues: (teamId: string, status: IssueStatus) => ["team", teamId, "issues", status] as const,
   rocks: (teamId: string) => ["team", teamId, "rocks"] as const,
   activeMeeting: (teamId: string) => ["team", teamId, "meeting"] as const,
+  meetingSummaries: (teamId: string) => ["team", teamId, "meeting-summary"] as const,
+  meetingSummary: (teamId: string, meetingId: string, stage: SummaryStage) =>
+    ["team", teamId, "meeting-summary", meetingId, stage] as const,
   serverClockOffset: ["server-clock-offset"] as const,
 };
