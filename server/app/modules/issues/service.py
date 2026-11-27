@@ -3,6 +3,7 @@ from datetime import date
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,12 +12,13 @@ from app.calculations.scorecard import ScoreStatus, score_status
 from app.core.clock import utc_now
 from app.core.errors import Conflict, NotFound
 from app.core.permissions import CurrentUser
-from app.models import Issue
+from app.models import Issue, Measurable
 from app.modules.issues.schemas import IssueState
 from app.modules.scorecard.service import ensure_scorecard_week, get_changeable_measurable, get_score_value
 from app.modules.teams.service import company_clock, get_changeable_row, get_changeable_team, get_readable_team
 
 ISSUE_DETAILS = (selectinload(Issue.owner), selectinload(Issue.source_measurable))
+SCORE_ISSUE_ATTEMPTS = 3
 
 
 async def load_issue(session: AsyncSession, issue_id: str) -> Issue:
@@ -61,26 +63,48 @@ async def create_issue_from_score(
     value = await get_score_value(session, measurable_id, week_start)
     if score_status(measurable, value, week_start, clock.current_week) is not ScoreStatus.OFF_TRACK:
         raise Conflict("Only off-track scores can become an Issue")
-    existing_id = await session.scalar(
+    for _ in range(SCORE_ISSUE_ATTEMPTS):
+        created_id = await insert_score_issue(session, current_user, measurable, week_start)
+        if created_id is not None:
+            return await load_issue(session, created_id), True
+        existing_id = await find_open_score_issue_id(session, measurable_id, week_start)
+        if existing_id is not None:
+            return await load_issue(session, existing_id), False
+    raise Conflict("This score's Issue changed while it was being made. Try again")
+
+
+async def insert_score_issue(
+    session: AsyncSession, current_user: CurrentUser, measurable: Measurable, week_start: date
+) -> str | None:
+    statement = (
+        insert(Issue)
+        .values(
+            id=str(uuid4()),
+            team_id=measurable.team_id,
+            title=score_issue_title(measurable.name, week_start),
+            owner_id=current_user.id,
+            source_measurable_id=measurable.id,
+            source_week_start=week_start,
+        )
+        .on_conflict_do_nothing(
+            index_elements=[Issue.source_measurable_id, Issue.source_week_start],
+            index_where=Issue.solved_at.is_(None) & Issue.source_measurable_id.is_not(None),
+        )
+        .returning(Issue.id)
+    )
+    created_id = await session.scalar(statement)
+    await session.commit()
+    return created_id
+
+
+async def find_open_score_issue_id(session: AsyncSession, measurable_id: str, week_start: date) -> str | None:
+    return await session.scalar(
         select(Issue.id).where(
             Issue.source_measurable_id == measurable_id,
             Issue.source_week_start == week_start,
             Issue.solved_at.is_(None),
         )
     )
-    if existing_id is not None:
-        return await load_issue(session, existing_id), False
-    issue = Issue(
-        id=str(uuid4()),
-        team_id=measurable.team_id,
-        title=score_issue_title(measurable.name, week_start),
-        owner_id=current_user.id,
-        source_measurable_id=measurable_id,
-        source_week_start=week_start,
-    )
-    session.add(issue)
-    await session.commit()
-    return await load_issue(session, issue.id), True
 
 
 async def set_priority(session: AsyncSession, current_user: CurrentUser, issue_id: str, priority: int | None) -> Issue:
