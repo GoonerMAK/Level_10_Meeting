@@ -18,9 +18,11 @@ async def read_teams(session: DbSession, current_user: SignedInUser) -> list[Tea
 async def read_team(team_id: str, session: DbSession, current_user: SignedInUser) -> TeamDetail:
     team, members = await service.get_team_with_members(session, current_user, team_id)
     owners = await service.list_todo_owners(session, team_id)
+    timezone = await service.company_timezone(session, team_id)
     return TeamDetail(
         id=team.id,
         name=team.name,
+        timezone=timezone.key,
         members=[TeamMember.model_validate(member) for member in members],
         todo_owners=[
             TodoOwner(id=owner.id, name=owner.name, role=owner.role, on_team=on_team) for owner, on_team in owners

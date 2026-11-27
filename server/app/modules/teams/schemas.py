@@ -23,5 +23,6 @@ class TodoOwner(TeamMember):
 
 
 class TeamDetail(TeamSummary):
+    timezone: str
     members: list[TeamMember]
     todo_owners: list[TodoOwner]
