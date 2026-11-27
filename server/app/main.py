@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import text
+from starlette.middleware.sessions import SessionMiddleware
 
+from app.core.config import settings
 from app.core.errors import register_error_handlers
 from app.db.session import engine
 from app.modules.auth.router import router as auth_router
@@ -15,6 +17,7 @@ from app.modules.teams.router import router as teams_router
 from app.modules.todos.router import router as todos_router
 
 logger = logging.getLogger("uvicorn.error")
+SIGN_IN_SECONDS = 7 * 24 * 60 * 60
 
 
 @asynccontextmanager
@@ -29,6 +32,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title="Level 10 Meeting API", lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=settings.session_secret.get_secret_value(), max_age=SIGN_IN_SECONDS)
 register_error_handlers(app)
 for router in (auth_router, teams_router, scorecard_router, issues_router, todos_router, rocks_router):
     app.include_router(router, prefix="/api")
