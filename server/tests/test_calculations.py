@@ -1,18 +1,18 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from app.calculations.issues import in_issue_order
-from app.calculations.meetings import meeting_rating
+from app.calculations.meetings import meeting_rating, section_after, section_timer
 from app.calculations.numbers import whole_percent
 from app.calculations.rocks import rock_progress, rock_status
 from app.calculations.scorecard import ScoreStatus, score_status
 from app.calculations.time import CompanyClock
 from app.calculations.todos import completion_for_week, is_overdue
 from app.models import Issue, Measurable, Milestone, Todo
-from app.models.enums import GoalType, RockStatus
+from app.models.enums import GoalType, MeetingSection, RockStatus
 
 CHICAGO = ZoneInfo("America/Chicago")
 CLOCK = CompanyClock(now=datetime(2026, 11, 11, 15, 0, tzinfo=UTC), timezone=CHICAGO)
@@ -139,3 +139,22 @@ def test_meeting_rating_averages_to_one_decimal_half_up():
     assert meeting_rating([8, 9, 8, 8]) == Decimal("8.3")
     assert meeting_rating([7]) == Decimal("7.0")
     assert meeting_rating([]) is None
+
+
+def test_the_agenda_runs_scorecard_then_ids_then_conclude():
+    assert section_after(MeetingSection.SCORECARD) is MeetingSection.IDS
+    assert section_after(MeetingSection.IDS) is MeetingSection.CONCLUDE
+    assert section_after(MeetingSection.CONCLUDE) is None
+
+
+@pytest.mark.parametrize(
+    ("section", "minutes"),
+    [(MeetingSection.SCORECARD, 5), (MeetingSection.IDS, 60), (MeetingSection.CONCLUDE, 10)],
+)
+def test_a_section_is_over_time_only_after_its_length(section, minutes):
+    started_at = datetime(2026, 11, 11, 15, 0, tzinfo=UTC)
+    ends_at = started_at + timedelta(minutes=minutes)
+
+    assert section_timer(section, started_at, ends_at).ends_at == ends_at
+    assert section_timer(section, started_at, ends_at).over_time is False
+    assert section_timer(section, started_at, ends_at + timedelta(seconds=1)).over_time is True
