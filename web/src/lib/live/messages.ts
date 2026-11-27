@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { MeetingState } from "../api/client";
+import { storeMeeting } from "../api/meetings";
 import { queryKeys, type TeamData } from "../api/query-keys";
 
 export type LiveMessage =
@@ -70,7 +71,7 @@ export async function applyLiveMessage({
       await queryClient.invalidateQueries({ queryKey: queryKeys.teamData(teamId, message.what) });
       return;
     case "meeting":
-      queryClient.setQueryData(queryKeys.activeMeeting(teamId), message.meeting);
+      storeMeeting(queryClient, teamId, message.meeting);
       return;
     default: {
       const exhaustive: never = message;

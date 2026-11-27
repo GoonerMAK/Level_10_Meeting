@@ -11,4 +11,5 @@ export const queryKeys = {
   issues: (teamId: string, status: IssueStatus) => ["team", teamId, "issues", status] as const,
   rocks: (teamId: string) => ["team", teamId, "rocks"] as const,
   activeMeeting: (teamId: string) => ["team", teamId, "meeting"] as const,
+  serverClockOffset: ["server-clock-offset"] as const,
 };
