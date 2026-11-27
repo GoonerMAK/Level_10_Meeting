@@ -11,6 +11,7 @@ const meeting: MeetingState = {
   facilitator: { id: "user-1", name: "Ada" },
   attendees: [{ id: "user-1", name: "Ada" }],
   ratings: [],
+  rating: null,
   started_at: "2026-11-11T15:00:00Z",
   ended_at: null,
   section: "scorecard",

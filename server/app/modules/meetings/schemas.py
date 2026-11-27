@@ -21,6 +21,7 @@ class MeetingState(BaseModel):
     facilitator: UserRef
     attendees: list[UserRef]
     ratings: list[MeetingRatingOut]
+    rating: JsonNumber | None
     started_at: datetime
     ended_at: datetime | None
     section: MeetingSection | None
@@ -59,7 +60,7 @@ class MeetingSummary(BaseModel):
     id: str
     team_id: str
     started_at: datetime
-    ended_at: datetime
+    ended_at: datetime | None
     scorecard_week: date
     measurables: list[SummaryMeasurable]
     issues_solved: list[SummaryIssue]

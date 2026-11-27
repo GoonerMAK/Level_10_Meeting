@@ -571,6 +571,8 @@ export interface components {
             attendees: components["schemas"]["UserRef"][];
             /** Ratings */
             ratings: components["schemas"]["MeetingRatingOut"][];
+            /** Rating */
+            rating: number | null;
             /**
              * Started At
              * Format: date-time
@@ -602,11 +604,8 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
-            /**
-             * Ended At
-             * Format: date-time
-             */
-            ended_at: string;
+            /** Ended At */
+            ended_at: string | null;
             /**
              * Scorecard Week
              * Format: date
@@ -2400,23 +2399,6 @@ export interface operations {
                      *       "error": {
                      *         "code": "not_found",
                      *         "message": "Team not found"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Clashes with the current data */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "conflict",
-                     *         "message": "This Issue is already solved"
                      *       }
                      *     }
                      */

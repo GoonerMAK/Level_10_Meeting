@@ -68,7 +68,10 @@ export async function applyLiveMessage({
     case "hello":
       return;
     case "changed":
-      await queryClient.invalidateQueries({ queryKey: queryKeys.teamData(teamId, message.what) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.teamData(teamId, message.what) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.meetingSummaries(teamId) }),
+      ]);
       return;
     case "meeting":
       storeMeeting(queryClient, teamId, message.meeting);
