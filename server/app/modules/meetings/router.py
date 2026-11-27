@@ -3,7 +3,7 @@ from fastapi import APIRouter, Response, status
 from app.db.session import DbSession
 from app.modules.auth.dependencies import SignedInUser
 from app.modules.meetings import service
-from app.modules.meetings.schemas import MeetingState, NextSection
+from app.modules.meetings.schemas import MeetingState, NextSection, RatingUpdate
 
 router = APIRouter(tags=["meetings"])
 
@@ -45,3 +45,8 @@ async def move_to_next_section(
 @router.post("/meetings/{meeting_id}/end")
 async def end_meeting(meeting_id: str, session: DbSession, current_user: SignedInUser) -> MeetingState:
     return await service.end_meeting(session, current_user, meeting_id)
+
+
+@router.put("/meetings/{meeting_id}/rating")
+async def rate_meeting(meeting_id: str, body: RatingUpdate, session: DbSession, current_user: SignedInUser) -> MeetingState:
+    return await service.rate_meeting(session, current_user, meeting_id, body.rating)

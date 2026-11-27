@@ -220,3 +220,81 @@ def test_a_seeded_meeting_reads_as_ended(sign_in):
     assert response["ended_at"] == "2026-10-28T16:15:00Z"
     assert response["section"] is None
     assert [attendee["id"] for attendee in response["attendees"]] == ["u1", "u2", "u3", "u4", "u5"]
+
+
+def in_conclude(sign_in, *attendees):
+    meeting_id = start(sign_in, "u2").json()["id"]
+    for user_id in attendees:
+        as_user(sign_in, user_id, "POST", f"/api/meetings/{meeting_id}/join")
+    for section in ("scorecard", "ids"):
+        as_user(sign_in, "u2", "POST", f"/api/meetings/{meeting_id}/next", json={"from_section": section})
+    return meeting_id
+
+
+def rate(sign_in, user_id, meeting_id, rating):
+    return as_user(sign_in, user_id, "PUT", f"/api/meetings/{meeting_id}/rating", json={"rating": rating})
+
+
+def test_attendees_rate_in_conclude_and_can_change_it(sign_in):
+    meeting_id = in_conclude(sign_in, "u1")
+    rate(sign_in, "u2", meeting_id, 7)
+    rate(sign_in, "u1", meeting_id, 10)
+
+    changed = rate(sign_in, "u2", meeting_id, 9)
+
+    assert changed.status_code == 200
+    assert changed.json()["ratings"] == [
+        {"user": {"id": "u1", "name": "Avery Admin"}, "rating": 10},
+        {"user": {"id": "u2", "name": "Blake Brooks"}, "rating": 9},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("user_id", "status", "message"),
+    [
+        ("u5", 403, "Observers can follow the meeting but cannot rate it"),
+        ("u3", 403, "Join the meeting before rating it"),
+        ("u6", 404, "Meeting not found"),
+    ],
+    ids=["observer", "not attending", "other team"],
+)
+def test_rating_is_refused_for(sign_in, user_id, status, message):
+    meeting_id = in_conclude(sign_in, "u5")
+
+    response = rate(sign_in, user_id, meeting_id, 8)
+
+    assert response.status_code == status
+    assert response.json()["error"]["message"] == message
+
+
+def test_ratings_open_only_in_conclude(sign_in):
+    meeting_id = start(sign_in, "u2").json()["id"]
+
+    response = rate(sign_in, "u2", meeting_id, 8)
+
+    assert response.status_code == 409
+    assert response.json()["error"]["message"] == "Ratings open in Conclude"
+
+
+def test_ratings_close_when_the_meeting_ends(sign_in):
+    meeting_id = in_conclude(sign_in)
+    rate(sign_in, "u2", meeting_id, 8)
+    as_user(sign_in, "u2", "POST", f"/api/meetings/{meeting_id}/end")
+
+    response = rate(sign_in, "u2", meeting_id, 3)
+
+    assert response.status_code == 409
+    assert as_user(sign_in, "u2", "GET", f"/api/meetings/{meeting_id}").json()["ratings"][0]["rating"] == 8
+
+
+@pytest.mark.parametrize("rating", [0, 11])
+def test_a_rating_outside_1_to_10_is_invalid(sign_in, rating):
+    meeting_id = in_conclude(sign_in)
+
+    assert rate(sign_in, "u2", meeting_id, rating).status_code == 422
+
+
+def test_a_seeded_meeting_lists_its_ratings(sign_in):
+    ratings = as_user(sign_in, "u2", "GET", "/api/meetings/mt2").json()["ratings"]
+
+    assert [(entry["user"]["id"], entry["rating"]) for entry in ratings] == [("u1", 8), ("u2", 9), ("u3", 8), ("u4", 8)]

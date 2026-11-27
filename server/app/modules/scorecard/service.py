@@ -13,6 +13,7 @@ from app.core.errors import InvalidInput
 from app.core.permissions import CurrentUser
 from app.core.schemas import UserRef
 from app.models import Measurable, Score
+from app.modules.live.hub import publish_change
 from app.modules.scorecard.schemas import Goal, MeasurableRow, Scorecard, ScoreCell
 from app.modules.teams.service import company_clock, get_changeable_row, readable_team_clock
 
@@ -81,4 +82,5 @@ async def set_score(
         )
     )
     await session.commit()
+    await publish_change(measurable.team_id, "scorecard")
     return score_cell(measurable, week_start, value, clock)

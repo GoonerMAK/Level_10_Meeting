@@ -14,6 +14,7 @@ from app.core.errors import Conflict, NotFound
 from app.core.permissions import CurrentUser
 from app.models import Issue, Measurable
 from app.modules.issues.schemas import IssueState
+from app.modules.live.hub import publish_change
 from app.modules.scorecard.service import ensure_scorecard_week, get_changeable_measurable, get_score_value
 from app.modules.teams.service import company_clock, get_changeable_row, get_changeable_team, get_readable_team
 
@@ -51,6 +52,7 @@ async def create_issue(
     issue = Issue(id=str(uuid4()), team_id=team_id, title=title, owner_id=current_user.id, priority=priority)
     session.add(issue)
     await session.commit()
+    await publish_change(team_id, "issues")
     return await load_issue(session, issue.id)
 
 
@@ -66,6 +68,7 @@ async def create_issue_from_score(
     for _ in range(SCORE_ISSUE_ATTEMPTS):
         created_id = await insert_score_issue(session, current_user, measurable, week_start)
         if created_id is not None:
+            await publish_change(measurable.team_id, "issues")
             return await load_issue(session, created_id), True
         existing_id = await find_open_score_issue_id(session, measurable_id, week_start)
         if existing_id is not None:
@@ -111,6 +114,7 @@ async def set_priority(session: AsyncSession, current_user: CurrentUser, issue_i
     issue = await get_changeable_open_issue(session, current_user, issue_id)
     issue.priority = priority
     await session.commit()
+    await publish_change(issue.team_id, "issues")
     return await load_issue(session, issue_id)
 
 
@@ -119,4 +123,5 @@ async def solve_issue(session: AsyncSession, current_user: CurrentUser, issue_id
     issue.solved_at = utc_now()
     issue.resolution_note = resolution_note
     await session.commit()
+    await publish_change(issue.team_id, "issues")
     return await load_issue(session, issue_id)

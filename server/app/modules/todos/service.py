@@ -12,6 +12,7 @@ from app.core.errors import InvalidInput, NotFound
 from app.core.permissions import CurrentUser
 from app.models import Issue, Membership, Todo, User
 from app.models.enums import UserRole
+from app.modules.live.hub import publish_change
 from app.modules.teams.service import company_clock, get_changeable_row, readable_team_clock
 from app.modules.todos.schemas import TodoList, TodoOut
 
@@ -73,6 +74,7 @@ async def add_todo_to_issue(
     )
     session.add(todo)
     await session.commit()
+    await publish_change(issue.team_id, "todos")
     return await todo_out(session, todo.id, clock)
 
 
@@ -83,4 +85,5 @@ async def set_todo_done(session: AsyncSession, current_user: CurrentUser, todo_i
     if not done:
         todo.done_at = None
     await session.commit()
+    await publish_change(todo.team_id, "todos")
     return await todo_out(session, todo_id, await company_clock(session, todo.team_id))
