@@ -14,3 +14,41 @@ APP_NOW=2026-11-18T15:00:00Z tools/report.sh
 **Assumptions**
 - Every seeded Rock is included, not only the current quarter's.
 - Another `APP_NOW` moves only the clock; the data stays as seeded.
+
+## Live connection
+
+One WebSocket per open team page: `ws://<host>/api/live?team_id=<team_id>`. The sign-in cookie identifies the user; the page must be served from the web app's address (`WEB_ORIGIN`). The server ignores anything the browser sends.
+
+**Refused connections** close with code `1008` and one of these reasons:
+
+| Reason | When |
+|---|---|
+| `Unknown web address` | The page isn't the web app |
+| `Choose a user first` | Not signed in |
+| `Team not found` | No such team, or one the user can't open |
+
+**Messages from the server**
+
+| `type` | When | Fields |
+|---|---|---|
+| `hello` | Right after connecting | `user`: who is connected |
+| `meeting` | Right after `hello`, then on every start, join, next section, end or rating | `meeting`: the full meeting state, the same as `GET /api/meetings/{id}`, or `null` when none is running |
+| `changed` | After any score, Issue or To-Do change on the team, from either page | `what`: `scorecard`, `issues` or `todos`; refetch that list |
+
+```json
+{"type": "hello", "user": {"id": "u2", "name": "Blake Brooks"}}
+```
+
+```json
+{"type": "meeting", "meeting": {"id": "mt3", "team_id": "team_lead", "facilitator": {"id": "u2", "name": "Blake Brooks"}, "attendees": [{"id": "u2", "name": "Blake Brooks"}, {"id": "u5", "name": "Ellis Evans"}], "ratings": [], "started_at": "2026-11-11T15:00:00Z", "ended_at": null, "section": "scorecard", "section_started_at": "2026-11-11T15:00:00Z", "section_ends_at": "2026-11-11T15:05:00Z", "over_time": false, "server_now": "2026-11-11T15:01:30Z"}}
+```
+
+```json
+{"type": "meeting", "meeting": null}
+```
+
+```json
+{"type": "changed", "what": "issues"}
+```
+
+The browser works out time left and over time from `section_ends_at` and `server_now`.

@@ -6,6 +6,7 @@ from app.db.session import SessionLocal
 from app.models import Team
 from app.modules.auth.dependencies import LiveUser
 from app.modules.live.hub import current_hub
+from app.modules.live.messages import Hello
 from app.modules.meetings.service import active_meeting_state, meeting_message
 
 router = APIRouter(tags=["live"])
@@ -16,11 +17,11 @@ async def live(websocket: WebSocket, current_user: LiveUser, team_id: str) -> No
     await ensure_readable_team(current_user, team_id)
     hub = current_hub()
     await websocket.accept()
-    await websocket.send_json({"type": "hello", "user": UserRef(id=current_user.id, name=current_user.name).model_dump()})
+    await websocket.send_json(Hello(user=UserRef(id=current_user.id, name=current_user.name)).model_dump(mode="json"))
     async with hub.in_order(team_id):
         async with SessionLocal() as session:
             state = await active_meeting_state(session, team_id)
-        await websocket.send_json(meeting_message(state))
+        await websocket.send_json(meeting_message(state).model_dump(mode="json"))
         hub.add(team_id, websocket)
     try:
         while True:

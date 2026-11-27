@@ -1,7 +1,6 @@
 import asyncio
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import func, select, update
@@ -20,6 +19,7 @@ from app.db.session import SessionLocal
 from app.models import Issue, Measurable, Meeting, MeetingAttendee, MeetingRating, Score, Todo, User
 from app.models.enums import MeetingSection, UserRole
 from app.modules.live.hub import current_hub
+from app.modules.live.messages import MeetingMessage
 from app.modules.meetings.schemas import (
     MeetingRatingOut,
     MeetingState,
@@ -226,8 +226,8 @@ async def publish_meeting(team_id: str, meeting_id: str) -> None:
         await hub.send(team_id, meeting_message(state))
 
 
-def meeting_message(state: MeetingState | None) -> dict[str, Any]:
-    return {"type": "meeting", "meeting": state.model_dump(mode="json") if state else None}
+def meeting_message(state: MeetingState | None) -> MeetingMessage:
+    return MeetingMessage(meeting=state)
 
 
 async def load_meeting(session: AsyncSession, meeting_id: str) -> Meeting:

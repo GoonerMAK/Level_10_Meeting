@@ -2,13 +2,16 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.clock import TickingClock, use_clock
 from app.core.config import settings
+from app.core.error_docs import without_framework_errors
 from app.core.errors import register_error_handlers
 from app.db.clock import keep_saving_app_time, load_app_time, save_app_time
 from app.db.session import engine
@@ -47,7 +50,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         await engine.dispose()
 
 
-app = FastAPI(title="Level 10 Meeting API", lifespan=lifespan)
+API_DESCRIPTION = (
+    "Every error uses one shape: `{\"error\": {\"code\", \"message\", \"fields\"}}`. "
+    "Each route lists the errors it can return.\n\n"
+    "The live meeting connection (`/api/live?team_id=...`) is a WebSocket, which this page can't show. "
+    "Its messages are described in the README, under "
+    "[Live connection](https://github.com/GoonerMAK/Level_10_Meeting#live-connection)."
+)
+
+app = FastAPI(title="Level 10 Meeting API", description=API_DESCRIPTION, lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret.get_secret_value(), max_age=SIGN_IN_IDLE_SECONDS)
 register_error_handlers(app)
 
@@ -63,3 +74,13 @@ ROUTERS = (
 )
 for router in ROUTERS:
     app.include_router(router, prefix="/api")
+
+
+def api_schema() -> dict[str, Any]:
+    if app.openapi_schema is None:
+        schema = get_openapi(title=app.title, version=app.version, description=app.description, routes=app.routes)
+        app.openapi_schema = without_framework_errors(schema)
+    return app.openapi_schema
+
+
+app.openapi = api_schema
