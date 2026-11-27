@@ -1,12 +1,13 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.clock import TickingClock, use_clock, utc_now
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.db.clock import load_clock_start
 from app.db.session import SessionLocal, engine
 from app.main import app
@@ -25,6 +26,22 @@ def load_starts(*app_nows):
         return starts, rows
 
     return asyncio.run(load())
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2026-11-18T15:00:00", datetime(2026, 11, 18, 15, 0, tzinfo=UTC)),
+        ("2026-11-18T15:00:00Z", datetime(2026, 11, 18, 15, 0, tzinfo=UTC)),
+        ("2026-11-18T09:00:00-06:00", datetime(2026, 11, 18, 15, 0, tzinfo=UTC)),
+    ],
+    ids=["no time zone", "utc", "chicago offset"],
+)
+def test_app_now_is_read_as_utc(value, expected):
+    app_now = Settings(app_now=value).app_now
+
+    assert app_now == expected
+    assert app_now.utcoffset() == timedelta(0)
 
 
 def test_today_stays_on_the_app_now_date_while_the_clock_ticks(sign_in):
