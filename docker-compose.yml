@@ -1,9 +1,19 @@
+x-server: &server
+  build:
+    context: .
+    dockerfile: server/Dockerfile
+  environment:
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-level10}:${POSTGRES_PASSWORD:-level10}@db:5432/${POSTGRES_DB:-level10}
+    SESSION_SECRET: ${SESSION_SECRET:-dev-only-secret-for-local-demo}
+    WEB_ORIGIN: http://localhost:${WEB_PORT:-3000}
+
 services:
   db:
     image: postgres:17-alpine
-    env_file: .env
-    ports:
-      - "${POSTGRES_PORT:?set POSTGRES_PORT in .env}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-level10}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-level10}
+      POSTGRES_DB: ${POSTGRES_DB:-level10}
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -11,6 +21,38 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  migrate:
+    <<: *server
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  server:
+    <<: *server
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/auth/users')"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build:
+      context: ./web
+      args:
+        API_ORIGIN: http://server:8000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      server:
+        condition: service_healthy
 
 volumes:
   db-data:
