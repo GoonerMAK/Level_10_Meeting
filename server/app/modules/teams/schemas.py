@@ -18,5 +18,10 @@ class TeamMember(BaseModel):
     role: UserRole
 
 
+class TodoOwner(TeamMember):
+    on_team: bool
+
+
 class TeamDetail(TeamSummary):
     members: list[TeamMember]
+    todo_owners: list[TodoOwner]
