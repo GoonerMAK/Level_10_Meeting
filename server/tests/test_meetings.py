@@ -180,6 +180,18 @@ def test_the_facilitator_can_end_at_any_time(sign_in, fixed_clock):
     assert (ended["section"], ended["section_ends_at"], ended["over_time"]) == (None, None, False)
 
 
+def test_a_clock_set_back_still_moves_on_and_ends_after_the_start(sign_in, fixed_clock):
+    meeting = start(sign_in, "u2").json()
+    fixed_clock.advance(timedelta(days=-7))
+
+    moved = as_user(sign_in, "u2", "POST", f"/api/meetings/{meeting['id']}/next", json={"from_section": "scorecard"})
+    ended = as_user(sign_in, "u2", "POST", f"/api/meetings/{meeting['id']}/end")
+
+    assert moved.status_code == ended.status_code == 200
+    assert at(moved.json()["section_started_at"]) == at(meeting["started_at"])
+    assert at(ended.json()["ended_at"]) == at(meeting["started_at"])
+
+
 @pytest.mark.parametrize(
     ("method", "path", "body"),
     [("POST", "end", None), ("POST", "join", None), ("POST", "next", {"from_section": "scorecard"})],

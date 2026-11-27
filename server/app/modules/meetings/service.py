@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -103,7 +103,7 @@ async def move_to_next_section(
     moved = await session.scalar(
         update(Meeting)
         .where(Meeting.id == meeting_id, ACTIVE, Meeting.current_section == from_section)
-        .values(current_section=following, section_started_at=utc_now())
+        .values(current_section=following, section_started_at=func.greatest(utc_now(), Meeting.section_started_at))
         .returning(Meeting.id)
     )
     await session.commit()
@@ -118,7 +118,7 @@ async def end_meeting(session: AsyncSession, current_user: CurrentUser, meeting_
     ended = await session.scalar(
         update(Meeting)
         .where(Meeting.id == meeting_id, ACTIVE)
-        .values(ended_at=utc_now(), current_section=None, section_started_at=None)
+        .values(ended_at=func.greatest(utc_now(), Meeting.started_at), current_section=None, section_started_at=None)
         .returning(Meeting.id)
     )
     await session.commit()
