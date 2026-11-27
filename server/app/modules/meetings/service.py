@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -31,6 +32,8 @@ from app.modules.scorecard.schemas import Goal
 from app.modules.teams.service import company_timezone, get_readable_team
 
 START_ATTEMPTS = 3
+EMPTY_MEETING_ENDS_AFTER = timedelta(minutes=30)
+EMPTY_CHECK_EVERY_SECONDS = 30
 ACTIVE = Meeting.ended_at.is_(None)
 
 
@@ -140,6 +143,45 @@ async def end_meeting(session: AsyncSession, current_user: CurrentUser, meeting_
         raise Conflict("This meeting has already ended")
     await publish_meeting(meeting.team_id, meeting_id)
     return await meeting_state(session, await load_meeting(session, meeting_id))
+
+
+async def keep_ending_empty_meetings() -> None:
+    while True:
+        await asyncio.sleep(EMPTY_CHECK_EVERY_SECONDS)
+        await end_empty_meetings(utc_now())
+
+
+async def end_empty_meetings(now: datetime) -> list[str]:
+    hub = current_hub()
+    async with SessionLocal() as session:
+        running = (await session.scalars(select(Meeting).where(ACTIVE).order_by(Meeting.id))).all()
+    ended = []
+    for meeting in running:
+        if not hub.is_empty(meeting.team_id):
+            continue
+        empty_from = max(hub.nobody_there_since(meeting.team_id), meeting.started_at)
+        if now - empty_from >= EMPTY_MEETING_ENDS_AFTER and await end_if_still_empty(meeting, empty_from):
+            ended.append(meeting.id)
+    return ended
+
+
+async def end_if_still_empty(meeting: Meeting, ended_at: datetime) -> bool:
+    hub = current_hub()
+    async with hub.in_order(meeting.team_id):
+        if not hub.is_empty(meeting.team_id):
+            return False
+        async with SessionLocal() as session:
+            ended = await session.scalar(
+                update(Meeting)
+                .where(Meeting.id == meeting.id, ACTIVE)
+                .values(ended_at=ended_at, current_section=None, section_started_at=None)
+                .returning(Meeting.id)
+            )
+            await session.commit()
+    if ended is None:
+        return False
+    await publish_meeting(meeting.team_id, meeting.id)
+    return True
 
 
 async def rate_meeting(session: AsyncSession, current_user: CurrentUser, meeting_id: str, rating: int) -> MeetingState:
