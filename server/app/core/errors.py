@@ -1,11 +1,18 @@
+import logging
 from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any
 
+from asyncpg.exceptions import ForeignKeyViolationError, NotNullViolationError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException
+
+from app.core.messages import DATA_RULES, FIELD_MESSAGES, UNKNOWN_LINK, UNKNOWN_RULE, DataRule, bad_value
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class AppError(Exception):
@@ -64,6 +71,28 @@ def field_name(location: tuple[str | int, ...]) -> str:
     return ".".join(str(part) for part in location[1:]) or str(location[0])
 
 
+def plain_fields(error: RequestValidationError) -> list[dict[str, str]]:
+    fields: dict[str, str] = {}
+    for item in error.errors():
+        field = field_name(item["loc"])
+        fields.setdefault(field, FIELD_MESSAGES.get(field, item["msg"]))
+    return [{"field": field, "message": message} for field, message in fields.items()]
+
+
+def broken_data_rule(error: IntegrityError) -> DataRule:
+    cause = error.orig.__cause__ if error.orig is not None else None
+    constraint = getattr(cause, "constraint_name", None)
+    if constraint in DATA_RULES:
+        return DATA_RULES[constraint]
+    if isinstance(cause, NotNullViolationError):
+        column = cause.column_name
+        return bad_value(FIELD_MESSAGES.get(column, "A required value is missing"), column)
+    if isinstance(cause, ForeignKeyViolationError):
+        return UNKNOWN_LINK
+    logger.warning("No plain message for database rule %s", constraint or type(cause).__name__)
+    return UNKNOWN_RULE
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(_request: Request, error: AppError) -> JSONResponse:
@@ -71,8 +100,16 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(_request: Request, error: RequestValidationError) -> JSONResponse:
-        fields = [{"field": field_name(item["loc"]), "message": item["msg"]} for item in error.errors()]
-        return error_response(HTTPStatus.UNPROCESSABLE_CONTENT, "invalid_input", "Some fields are invalid", fields)
+        fields = plain_fields(error)
+        message = fields[0]["message"] if len(fields) == 1 else "Some fields are invalid"
+        return error_response(HTTPStatus.UNPROCESSABLE_CONTENT, "invalid_input", message, fields)
+
+    @app.exception_handler(IntegrityError)
+    async def handle_broken_data_rule(_request: Request, error: IntegrityError) -> JSONResponse:
+        rule = broken_data_rule(error)
+        code = "conflict" if rule.status is HTTPStatus.CONFLICT else "invalid_input"
+        fields = [{"field": rule.field, "message": rule.message}] if rule.field else None
+        return error_response(rule.status, code, rule.message, fields)
 
     @app.exception_handler(HTTPException)
     async def handle_http_error(_request: Request, error: HTTPException) -> JSONResponse:

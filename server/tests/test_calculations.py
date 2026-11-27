@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.calculations.issues import in_issue_order
+from app.calculations.issues import in_issue_order, score_issue_title
 from app.calculations.meetings import meeting_rating, section_after, section_timer
 from app.calculations.numbers import whole_percent
 from app.calculations.rocks import rock_progress, rock_status
@@ -133,6 +133,11 @@ def test_issue_order_is_priority_high_first_then_oldest_with_no_priority_last():
         Issue(id="p1", priority=1, created_at=older),
     ]
     assert [issue.id for issue in in_issue_order(issues)] == ["p5", "p3_older", "p3_newer", "p1", "none"]
+
+
+def test_score_issue_title_matches_the_seed_and_adds_the_year_only_for_another_year():
+    assert score_issue_title("New deals closed", date(2026, 11, 2), CLOCK.today) == "New deals closed, week of Nov 2"
+    assert score_issue_title("Payroll runs", date(2025, 12, 29), date(2026, 1, 5)) == "Payroll runs, week of Dec 29, 2025"
 
 
 def test_meeting_rating_averages_to_one_decimal_half_up():

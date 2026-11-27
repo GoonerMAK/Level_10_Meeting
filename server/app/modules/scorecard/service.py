@@ -42,7 +42,7 @@ async def get_scorecard(session: AsyncSession, current_user: CurrentUser, team_i
     weeks = clock.scorecard_weeks
     measurables = (
         await session.scalars(
-            select(Measurable).where(Measurable.team_id == team_id).options(selectinload(Measurable.owner)).order_by(Measurable.id)
+            select(Measurable).where(Measurable.team_id == team_id).options(selectinload(Measurable.owner)).order_by(Measurable.position, Measurable.id)
         )
     ).all()
     scores = await session.execute(

@@ -350,7 +350,7 @@ async def reviewed_measurables(session: AsyncSession, team_id: str, clock: Compa
     week = clock.last_closed_week
     measurables = (
         await session.scalars(
-            select(Measurable).where(Measurable.team_id == team_id).options(selectinload(Measurable.owner)).order_by(Measurable.id)
+            select(Measurable).where(Measurable.team_id == team_id).options(selectinload(Measurable.owner)).order_by(Measurable.position, Measurable.id)
         )
     ).all()
     scores = await session.execute(
