@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.time import CompanyClock
@@ -41,6 +41,30 @@ async def get_team_with_members(
         select(User).join(Membership, Membership.user_id == User.id).where(Membership.team_id == team_id).order_by(User.name)
     )
     return team, members.all()
+
+
+def is_on_team(team_id: str) -> ColumnElement[bool]:
+    return select(Membership).where(Membership.team_id == team_id, Membership.user_id == User.id).exists()
+
+
+def is_in_team_company(team_id: str) -> ColumnElement[bool]:
+    return User.company_id == select(Team.company_id).where(Team.id == team_id).scalar_subquery()
+
+
+def can_own_todos(team_id: str) -> ColumnElement[bool]:
+    return or_(
+        and_(User.role == UserRole.ADMIN, is_in_team_company(team_id)),
+        and_(User.role == UserRole.TEAM_MEMBER, is_on_team(team_id)),
+    )
+
+
+async def list_todo_owners(session: AsyncSession, team_id: str) -> list[tuple[User, bool]]:
+    rows = await session.execute(
+        select(User, is_on_team(team_id))
+        .where(can_own_todos(team_id))
+        .order_by(User.role == UserRole.ADMIN, User.name)
+    )
+    return [(user, on_team) for user, on_team in rows]
 
 
 async def company_timezone(session: AsyncSession, team_id: str) -> ZoneInfo:

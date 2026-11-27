@@ -10,10 +10,9 @@ from app.calculations.todos import completion_for_week
 from app.core.clock import utc_now
 from app.core.errors import InvalidInput, NotFound
 from app.core.permissions import CurrentUser
-from app.models import Issue, Membership, Todo, User
-from app.models.enums import UserRole
+from app.models import Issue, Todo, User
 from app.modules.live.hub import publish_change
-from app.modules.teams.service import company_clock, get_changeable_row, readable_team_clock
+from app.modules.teams.service import can_own_todos, company_clock, get_changeable_row, readable_team_clock
 from app.modules.todos.schemas import TodoList, TodoOut
 
 TODO_DETAILS = (selectinload(Todo.owner), selectinload(Todo.source_issue))
@@ -49,13 +48,9 @@ async def list_todos(session: AsyncSession, current_user: CurrentUser, team_id: 
 
 
 async def ensure_can_own_todos(session: AsyncSession, team_id: str, owner_id: str) -> None:
-    role = await session.scalar(
-        select(User.role)
-        .join(Membership, Membership.user_id == User.id)
-        .where(Membership.team_id == team_id, User.id == owner_id)
-    )
-    if role not in (UserRole.ADMIN, UserRole.TEAM_MEMBER):
-        raise InvalidInput("Owner must be an Admin or Team Member of this team", "owner_id")
+    owner = await session.scalar(select(User.id).where(User.id == owner_id, can_own_todos(team_id)))
+    if owner is None:
+        raise InvalidInput("Owner must be a Team Member of this team or an Admin", "owner_id")
 
 
 async def add_todo_to_issue(
