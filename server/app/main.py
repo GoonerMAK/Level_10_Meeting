@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import text
@@ -17,6 +17,7 @@ from app.modules.auth.service import SIGN_IN_IDLE_SECONDS
 from app.modules.issues.router import router as issues_router
 from app.modules.live.router import router as live_router
 from app.modules.meetings.router import router as meetings_router
+from app.modules.meetings.service import keep_ending_empty_meetings
 from app.modules.rocks.router import router as rocks_router
 from app.modules.scorecard.router import router as scorecard_router
 from app.modules.teams.router import router as teams_router
@@ -32,13 +33,16 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         clock = TickingClock(await load_app_time(connection, settings.app_now))
     use_clock(clock)
     logger.info("Database connection established (PostgreSQL %s)", server_version)
-    saving = asyncio.create_task(keep_saving_app_time(settings.app_now, clock))
+    background = [
+        asyncio.create_task(keep_saving_app_time(settings.app_now, clock)),
+        asyncio.create_task(keep_ending_empty_meetings()),
+    ]
     try:
         yield
     finally:
-        saving.cancel()
-        with suppress(asyncio.CancelledError):
-            await saving
+        for task in background:
+            task.cancel()
+        await asyncio.gather(*background, return_exceptions=True)
         await save_app_time(settings.app_now, clock)
         await engine.dispose()
 

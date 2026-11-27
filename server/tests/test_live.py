@@ -1,8 +1,10 @@
 import asyncio
+from datetime import datetime, timedelta
 
 import pytest
 from starlette.websockets import WebSocketDisconnect
 
+from app.modules.meetings.service import end_empty_meetings
 from conftest import execute_sql
 
 WEB_APP = {"origin": "http://localhost:3000"}
@@ -138,3 +140,74 @@ def test_ratings_and_the_end_show_up_live(sign_in):
 
     assert rated["meeting"]["ratings"] == [{"user": {"id": "u2", "name": "Blake Brooks"}, "rating": 9}]
     assert ended["meeting"]["ended_at"] is not None
+
+
+def check_for_empty_meetings(client, fixed_clock):
+    return client.portal.call(end_empty_meetings, fixed_clock.now())
+
+
+def meeting_after_check(client, sign_in, fixed_clock, meeting_id):
+    check_for_empty_meetings(client, fixed_clock)
+    return sign_in("u2").get(f"/api/meetings/{meeting_id}").json()
+
+
+def test_a_meeting_nobody_is_in_ends_30_minutes_after_the_last_person_left(client, sign_in, fixed_clock):
+    with connect(sign_in, "u2") as live:
+        opened(live)
+        meeting_id = sign_in("u2").post(START).json()["id"]
+        fixed_clock.advance(timedelta(minutes=5))
+        left_at = fixed_clock.now()
+    fixed_clock.advance(timedelta(minutes=29, seconds=59))
+    almost = meeting_after_check(client, sign_in, fixed_clock, meeting_id)
+    fixed_clock.advance(timedelta(seconds=1))
+    ended = meeting_after_check(client, sign_in, fixed_clock, meeting_id)
+
+    assert almost["ended_at"] is None
+    assert datetime.fromisoformat(ended["ended_at"]) == left_at
+    assert sign_in("u2").post(START).status_code == 201
+
+
+def test_a_short_drop_does_not_end_the_meeting(client, sign_in, fixed_clock):
+    with connect(sign_in, "u2") as live:
+        opened(live)
+        meeting_id = sign_in("u2").post(START).json()["id"]
+    fixed_clock.advance(timedelta(minutes=20))
+    with connect(sign_in, "u2") as back:
+        opened(back)
+    fixed_clock.advance(timedelta(minutes=20))
+
+    assert meeting_after_check(client, sign_in, fixed_clock, meeting_id)["ended_at"] is None
+
+
+def test_anyone_connected_keeps_the_meeting_going(client, sign_in, fixed_clock):
+    meeting_id = sign_in("u2").post(START).json()["id"]
+    with connect(sign_in, "u5") as observer:
+        opened(observer)
+        fixed_clock.advance(timedelta(hours=2))
+        meeting = meeting_after_check(client, sign_in, fixed_clock, meeting_id)
+
+    assert meeting["ended_at"] is None
+
+
+def test_a_meeting_nobody_ever_connected_to_gets_30_minutes_from_the_first_check(client, sign_in, fixed_clock):
+    meeting_id = sign_in("u2").post(START).json()["id"]
+    fixed_clock.advance(timedelta(hours=1))
+    first_check = fixed_clock.now()
+    kept = meeting_after_check(client, sign_in, fixed_clock, meeting_id)
+    fixed_clock.advance(timedelta(minutes=30))
+    ended = meeting_after_check(client, sign_in, fixed_clock, meeting_id)
+
+    assert kept["ended_at"] is None
+    assert datetime.fromisoformat(ended["ended_at"]) == first_check
+
+
+def test_after_an_auto_end_the_team_has_no_running_meeting(client, sign_in, fixed_clock):
+    meeting_id = sign_in("u2").post(START).json()["id"]
+    check_for_empty_meetings(client, fixed_clock)
+    fixed_clock.advance(timedelta(minutes=30))
+
+    assert check_for_empty_meetings(client, fixed_clock) == [meeting_id]
+    with connect(sign_in, "u3") as live:
+        _, meeting = opened(live)
+
+    assert meeting["meeting"] is None
