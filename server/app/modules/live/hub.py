@@ -3,14 +3,12 @@ from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Literal
 from weakref import WeakKeyDictionary
 
 from fastapi import WebSocket
 
 from app.core.clock import utc_now
-
-TeamData = Literal["scorecard", "issues", "todos"]
+from app.modules.live.messages import Changed, Hello, MeetingMessage, TeamData
 
 
 class TeamHub:
@@ -39,9 +37,10 @@ class TeamHub:
     def nobody_there_since(self, team_id: str) -> datetime:
         return self.empty_since.setdefault(team_id, utc_now())
 
-    async def send(self, team_id: str, message: dict[str, Any]) -> None:
+    async def send(self, team_id: str, message: Hello | MeetingMessage | Changed) -> None:
         sockets = list(self.sockets[team_id])
-        results = await asyncio.gather(*(socket.send_json(message) for socket in sockets), return_exceptions=True)
+        body = message.model_dump(mode="json")
+        results = await asyncio.gather(*(socket.send_json(body) for socket in sockets), return_exceptions=True)
         for socket, result in zip(sockets, results, strict=True):
             if isinstance(result, Exception):
                 self.remove(team_id, socket)
@@ -55,4 +54,4 @@ def current_hub() -> TeamHub:
 
 
 async def publish_change(team_id: str, what: TeamData) -> None:
-    await current_hub().send(team_id, {"type": "changed", "what": what})
+    await current_hub().send(team_id, Changed(what=what))

@@ -445,6 +445,26 @@ export interface components {
             /** Meets Target */
             meets_target: boolean;
         };
+        /** ErrorBody */
+        ErrorBody: {
+            error: components["schemas"]["ErrorDetail"];
+        };
+        /** ErrorDetail */
+        ErrorDetail: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Fields */
+            fields?: components["schemas"]["FieldError"][] | null;
+        };
+        /** FieldError */
+        FieldError: {
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+        };
         /** Goal */
         Goal: {
             type: components["schemas"]["GoalType"];
@@ -460,11 +480,6 @@ export interface components {
          * @enum {string}
          */
         GoalType: "at_least" | "at_most" | "between" | "exactly";
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
         /** IssueCreate */
         IssueCreate: {
             /** Title */
@@ -849,19 +864,6 @@ export interface components {
          * @enum {string}
          */
         UserRole: "admin" | "team_member" | "observer";
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
     };
     responses: never;
     parameters: never;
@@ -913,13 +915,27 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -960,6 +976,23 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
         };
     };
     read_teams_api_teams_get: {
@@ -978,6 +1011,23 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamSummary"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1002,13 +1052,38 @@ export interface operations {
                     "application/json": components["schemas"]["TeamDetail"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1033,13 +1108,38 @@ export interface operations {
                     "application/json": components["schemas"]["Scorecard"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1069,13 +1169,78 @@ export interface operations {
                     "application/json": components["schemas"]["ScoreCell"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1110,13 +1275,95 @@ export interface operations {
                     "application/json": components["schemas"]["IssueOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1143,13 +1390,61 @@ export interface operations {
                     "application/json": components["schemas"]["IssueOut"][];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1178,13 +1473,78 @@ export interface operations {
                     "application/json": components["schemas"]["IssueOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1213,13 +1573,95 @@ export interface operations {
                     "application/json": components["schemas"]["IssueOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1248,13 +1690,95 @@ export interface operations {
                     "application/json": components["schemas"]["IssueOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1283,13 +1807,78 @@ export interface operations {
                     "application/json": components["schemas"]["TodoOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1314,13 +1903,38 @@ export interface operations {
                     "application/json": components["schemas"]["TodoList"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1345,13 +1959,55 @@ export interface operations {
                     "application/json": components["schemas"]["TodoOut"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1376,13 +2032,55 @@ export interface operations {
                     "application/json": components["schemas"]["TodoOut"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1407,13 +2105,38 @@ export interface operations {
                     "application/json": components["schemas"]["RockList"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1447,13 +2170,72 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1478,13 +2260,38 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1509,13 +2316,38 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1540,13 +2372,55 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingSummary"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1571,13 +2445,55 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1606,13 +2522,95 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1637,13 +2635,72 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Not signed in */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -1672,13 +2729,95 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingState"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Signed in, but this role can't do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "forbidden",
+                     *         "message": "Observers can view this team but cannot change anything"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Clashes with the current data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
