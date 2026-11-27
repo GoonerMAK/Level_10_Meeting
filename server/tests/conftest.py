@@ -69,6 +69,53 @@ def seeded_database(migrated_database):
     asyncio.run(seed())
 
 
+SEEDED_TABLES = (
+    "companies",
+    "teams",
+    "users",
+    "memberships",
+    "measurables",
+    "scores",
+    "rocks",
+    "milestones",
+    "issues",
+    "todos",
+    "meetings",
+    "meeting_attendees",
+    "meeting_ratings",
+)
+
+
+async def seeded_rows() -> dict[str, set[str]]:
+    url = TEST_DATABASE_URL.set(drivername="postgresql")
+    connection = await asyncpg.connect(url.render_as_string(hide_password=False))
+    try:
+        return {
+            table: {
+                row[0]
+                for row in await connection.fetch(f"SELECT (to_jsonb(seeded) - 'created_at' - 'updated_at')::text FROM {table} seeded")
+            }
+            for table in SEEDED_TABLES
+        }
+    finally:
+        await connection.close()
+
+
+def changed_rows(before: dict[str, set[str]], after: dict[str, set[str]]) -> dict[str, dict[str, list[str]]]:
+    return {
+        table: {"left behind": sorted(after[table] - before[table]), "missing": sorted(before[table] - after[table])}
+        for table in SEEDED_TABLES
+        if before[table] != after[table]
+    }
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seeded_rows_stay_unchanged(seeded_database):
+    before = asyncio.run(seeded_rows())
+    yield
+    assert changed_rows(before, asyncio.run(seeded_rows())) == {}, "A test changed the seeded data and didn't undo it"
+
+
 @pytest.fixture(autouse=True)
 def fixed_clock():
     from app.core import clock
