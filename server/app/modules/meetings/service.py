@@ -1,21 +1,34 @@
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.calculations.meetings import AGENDA, section_after, section_timer
+from app.calculations.meetings import AGENDA, meeting_rating, section_after, section_timer
+from app.calculations.scorecard import score_status
+from app.calculations.time import CompanyClock
 from app.core.clock import utc_now
 from app.core.errors import Conflict, Forbidden, NotFound
 from app.core.permissions import CurrentUser, ensure_can_read_team
 from app.core.schemas import UserRef
 from app.db.session import SessionLocal
-from app.models import Meeting, MeetingAttendee, MeetingRating, User
+from app.models import Issue, Measurable, Meeting, MeetingAttendee, MeetingRating, Score, Todo, User
 from app.models.enums import MeetingSection, UserRole
 from app.modules.live.hub import current_hub
-from app.modules.meetings.schemas import MeetingRatingOut, MeetingState
-from app.modules.teams.service import get_readable_team
+from app.modules.meetings.schemas import (
+    MeetingRatingOut,
+    MeetingState,
+    MeetingSummary,
+    SummaryIssue,
+    SummaryMeasurable,
+    SummaryTodo,
+)
+from app.modules.scorecard.schemas import Goal
+from app.modules.teams.service import company_timezone, get_readable_team
 
 START_ATTEMPTS = 3
 ACTIVE = Meeting.ended_at.is_(None)
@@ -213,18 +226,8 @@ def ensure_running(meeting: Meeting) -> None:
 async def meeting_state(session: AsyncSession, meeting: Meeting) -> MeetingState:
     now = utc_now()
     facilitator = await session.get(User, meeting.facilitator_id)
-    attendees = await session.scalars(
-        select(User)
-        .join(MeetingAttendee, MeetingAttendee.user_id == User.id)
-        .where(MeetingAttendee.meeting_id == meeting.id)
-        .order_by(User.name, User.id)
-    )
-    ratings = await session.execute(
-        select(User, MeetingRating.rating)
-        .join(MeetingRating, MeetingRating.user_id == User.id)
-        .where(MeetingRating.meeting_id == meeting.id)
-        .order_by(User.name, User.id)
-    )
+    attendees = await meeting_attendees(session, meeting.id)
+    ratings = await meeting_ratings(session, meeting.id)
     timer = None
     if meeting.current_section is not None and meeting.section_started_at is not None:
         timer = section_timer(meeting.current_section, meeting.section_started_at, now)
@@ -232,8 +235,8 @@ async def meeting_state(session: AsyncSession, meeting: Meeting) -> MeetingState
         id=meeting.id,
         team_id=meeting.team_id,
         facilitator=UserRef.model_validate(facilitator),
-        attendees=[UserRef.model_validate(attendee) for attendee in attendees],
-        ratings=[MeetingRatingOut(user=UserRef.model_validate(user), rating=rating) for user, rating in ratings],
+        attendees=attendees,
+        ratings=ratings,
         started_at=meeting.started_at,
         ended_at=meeting.ended_at,
         section=meeting.current_section,
@@ -242,3 +245,107 @@ async def meeting_state(session: AsyncSession, meeting: Meeting) -> MeetingState
         over_time=timer.over_time if timer else False,
         server_now=now,
     )
+
+
+async def meeting_attendees(session: AsyncSession, meeting_id: str) -> list[UserRef]:
+    attendees = await session.scalars(
+        select(User)
+        .join(MeetingAttendee, MeetingAttendee.user_id == User.id)
+        .where(MeetingAttendee.meeting_id == meeting_id)
+        .order_by(User.name, User.id)
+    )
+    return [UserRef.model_validate(attendee) for attendee in attendees]
+
+
+async def meeting_ratings(session: AsyncSession, meeting_id: str) -> list[MeetingRatingOut]:
+    ratings = await session.execute(
+        select(User, MeetingRating.rating)
+        .join(MeetingRating, MeetingRating.user_id == User.id)
+        .where(MeetingRating.meeting_id == meeting_id)
+        .order_by(User.name, User.id)
+    )
+    return [MeetingRatingOut(user=UserRef.model_validate(user), rating=rating) for user, rating in ratings]
+
+
+async def get_meeting_summary(session: AsyncSession, current_user: CurrentUser, meeting_id: str) -> MeetingSummary:
+    meeting = await get_readable_meeting(session, current_user, meeting_id)
+    if meeting.ended_at is None:
+        raise Conflict("This meeting is still running. Its summary is ready once it ends")
+    return await meeting_summary(session, meeting, meeting.ended_at)
+
+
+async def meeting_summary(session: AsyncSession, meeting: Meeting, ended_at: datetime) -> MeetingSummary:
+    clock = CompanyClock(now=meeting.started_at, timezone=await company_timezone(session, meeting.team_id))
+    ratings = await meeting_ratings(session, meeting.id)
+    return MeetingSummary(
+        id=meeting.id,
+        team_id=meeting.team_id,
+        started_at=meeting.started_at,
+        ended_at=ended_at,
+        scorecard_week=clock.last_closed_week,
+        measurables=await reviewed_measurables(session, meeting.team_id, clock),
+        issues_solved=[
+            SummaryIssue(id=issue.id, title=issue.title, owner=UserRef.model_validate(issue.owner), solved_at=issue.solved_at)
+            for issue in await solved_during(session, meeting, ended_at)
+        ],
+        todos_created=[
+            SummaryTodo(
+                id=todo.id,
+                title=todo.title,
+                owner=UserRef.model_validate(todo.owner),
+                due_date=todo.due_date,
+                created_at=todo.created_at,
+            )
+            for todo in await created_during(session, meeting, ended_at)
+        ],
+        attendees=await meeting_attendees(session, meeting.id),
+        ratings=ratings,
+        rating=meeting_rating(entry.rating for entry in ratings),
+    )
+
+
+async def reviewed_measurables(session: AsyncSession, team_id: str, clock: CompanyClock) -> list[SummaryMeasurable]:
+    week = clock.last_closed_week
+    measurables = (
+        await session.scalars(
+            select(Measurable).where(Measurable.team_id == team_id).options(selectinload(Measurable.owner)).order_by(Measurable.id)
+        )
+    ).all()
+    scores = await session.execute(
+        select(Score.measurable_id, Score.value).where(
+            Score.week_start == week, Score.measurable_id.in_([measurable.id for measurable in measurables])
+        )
+    )
+    values = dict(scores.all())
+    return [
+        SummaryMeasurable(
+            id=measurable.id,
+            name=measurable.name,
+            owner=UserRef.model_validate(measurable.owner),
+            unit=measurable.unit,
+            goal=Goal.from_measurable(measurable),
+            value=values.get(measurable.id),
+            status=score_status(measurable, values.get(measurable.id), week, clock.current_week),
+        )
+        for measurable in measurables
+    ]
+
+
+async def solved_during(session: AsyncSession, meeting: Meeting, ended_at: datetime) -> Sequence[Issue]:
+    issues = await session.scalars(
+        select(Issue)
+        .where(Issue.team_id == meeting.team_id, Issue.solved_at.between(meeting.started_at, ended_at))
+        .options(selectinload(Issue.owner))
+        .order_by(Issue.solved_at, Issue.id)
+    )
+    return issues.all()
+
+
+async def created_during(session: AsyncSession, meeting: Meeting, ended_at: datetime) -> Sequence[Todo]:
+    todos = await session.scalars(
+        select(Todo)
+        .where(Todo.team_id == meeting.team_id, Todo.created_at.between(meeting.started_at, ended_at))
+        .options(selectinload(Todo.owner))
+        .order_by(Todo.created_at, Todo.id)
+    )
+    return todos.all()

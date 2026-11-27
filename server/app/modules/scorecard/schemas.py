@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.calculations.scorecard import ScoreStatus
 from app.core.schemas import JsonNumber, UserRef
+from app.models import Measurable
 from app.models.enums import GoalType
 
 
@@ -13,6 +14,10 @@ class Goal(BaseModel):
     value: JsonNumber | None
     min: JsonNumber | None
     max: JsonNumber | None
+
+    @classmethod
+    def from_measurable(cls, measurable: Measurable) -> "Goal":
+        return cls(type=measurable.goal_type, value=measurable.goal_value, min=measurable.goal_min, max=measurable.goal_max)
 
 
 class ScoreCell(BaseModel):
