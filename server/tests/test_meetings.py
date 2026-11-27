@@ -220,3 +220,4 @@ def test_a_seeded_meeting_reads_as_ended(sign_in):
     assert response["ended_at"] == "2026-10-28T16:15:00Z"
     assert response["section"] is None
     assert [attendee["id"] for attendee in response["attendees"]] == ["u1", "u2", "u3", "u4", "u5"]
+

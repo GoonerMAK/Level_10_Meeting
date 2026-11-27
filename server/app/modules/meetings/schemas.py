@@ -22,3 +22,4 @@ class MeetingState(BaseModel):
 
 class NextSection(BaseModel):
     from_section: MeetingSection
+

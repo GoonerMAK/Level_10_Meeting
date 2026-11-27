@@ -45,3 +45,4 @@ async def move_to_next_section(
 @router.post("/meetings/{meeting_id}/end")
 async def end_meeting(meeting_id: str, session: DbSession, current_user: SignedInUser) -> MeetingState:
     return await service.end_meeting(session, current_user, meeting_id)
+
