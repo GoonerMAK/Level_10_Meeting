@@ -1,32 +1,25 @@
 "use client";
 
-import { useParams } from "next/navigation";
-
-import { Badge } from "@/components/ui/badge";
-import { useTeam } from "@/lib/api/teams";
-import { ROLE_LABELS } from "@/lib/permissions";
+import { IssueDrawer } from "@/components/issues/issue-drawer";
+import { IssuesSection } from "@/components/issues/issues-section";
+import { RocksSection } from "@/components/rocks/rocks-section";
+import { ScorecardSection } from "@/components/scorecard/scorecard-section";
+import { useTeamContext } from "@/components/team/team-context";
+import { TodosSection } from "@/components/todos/todos-section";
 
 export function TeamPage() {
-  const { teamId } = useParams<{ teamId: string }>();
-  const team = useTeam(teamId);
-  if (!team.data) {
-    return null;
-  }
+  const { teamName } = useTeamContext();
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-        <h1 className="text-2xl font-semibold">{team.data.name}</h1>
-        <ul aria-label="Team members" className="flex flex-wrap gap-1.5">
-          {team.data.members.map((member) => (
-            <li key={member.id}>
-              <Badge variant="outline" className="font-normal">
-                {member.name} · {ROLE_LABELS[member.role]}
-              </Badge>
-            </li>
-          ))}
-        </ul>
+      <h1 className="text-2xl font-semibold">{teamName}</h1>
+      <ScorecardSection />
+      <IssuesSection />
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <TodosSection />
+        <RocksSection />
       </div>
+      <IssueDrawer />
     </div>
   );
 }
