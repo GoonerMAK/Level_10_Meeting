@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, timedelta
+from itertools import pairwise
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -32,6 +33,26 @@ def test_clock_reads_weeks_and_quarter_in_company_time():
         CURRENT_WEEK,
         13,
     )
+
+
+@pytest.mark.parametrize(
+    ("last_second", "monday", "week_before", "monday_midnight_utc"),
+    [
+        (datetime(2026, 11, 2, 5, 59, 59, tzinfo=UTC), date(2026, 11, 2), date(2026, 10, 26), datetime(2026, 11, 2, 6, tzinfo=UTC)),
+        (datetime(2026, 3, 9, 4, 59, 59, tzinfo=UTC), date(2026, 3, 9), date(2026, 3, 2), datetime(2026, 3, 9, 5, tzinfo=UTC)),
+    ],
+    ids=["after daylight saving ends", "after daylight saving starts"],
+)
+def test_the_week_turns_at_monday_midnight_across_a_daylight_saving_change(last_second, monday, week_before, monday_midnight_utc):
+    sunday_night = CompanyClock(now=last_second, timezone=CHICAGO)
+    monday_start = CompanyClock(now=last_second + timedelta(seconds=1), timezone=CHICAGO)
+
+    assert (sunday_night.current_week, monday_start.current_week) == (week_before, monday)
+    assert sunday_night.start_of_day(monday) == monday_midnight_utc
+    weeks = monday_start.scorecard_weeks
+    assert len(weeks) == 13
+    assert all(week.weekday() == 0 for week in weeks)
+    assert all(later - earlier == timedelta(weeks=1) for earlier, later in pairwise(weeks))
 
 
 def test_week_boundary_is_monday_midnight_in_company_time():
