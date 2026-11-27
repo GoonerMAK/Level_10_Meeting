@@ -279,6 +279,7 @@ async def meeting_state(session: AsyncSession, meeting: Meeting) -> MeetingState
         facilitator=UserRef.model_validate(facilitator),
         attendees=attendees,
         ratings=ratings,
+        rating=meeting_rating(entry.rating for entry in ratings),
         started_at=meeting.started_at,
         ended_at=meeting.ended_at,
         section=meeting.current_section,
@@ -311,24 +312,22 @@ async def meeting_ratings(session: AsyncSession, meeting_id: str) -> list[Meetin
 
 async def get_meeting_summary(session: AsyncSession, current_user: CurrentUser, meeting_id: str) -> MeetingSummary:
     meeting = await get_readable_meeting(session, current_user, meeting_id)
-    if meeting.ended_at is None:
-        raise Conflict("This meeting is still running. Its summary is ready once it ends")
-    return await meeting_summary(session, meeting, meeting.ended_at)
+    return await meeting_summary(session, meeting, meeting.ended_at or utc_now())
 
 
-async def meeting_summary(session: AsyncSession, meeting: Meeting, ended_at: datetime) -> MeetingSummary:
+async def meeting_summary(session: AsyncSession, meeting: Meeting, until: datetime) -> MeetingSummary:
     clock = CompanyClock(now=meeting.started_at, timezone=await company_timezone(session, meeting.team_id))
     ratings = await meeting_ratings(session, meeting.id)
     return MeetingSummary(
         id=meeting.id,
         team_id=meeting.team_id,
         started_at=meeting.started_at,
-        ended_at=ended_at,
+        ended_at=meeting.ended_at,
         scorecard_week=clock.last_closed_week,
         measurables=await reviewed_measurables(session, meeting.team_id, clock),
         issues_solved=[
             SummaryIssue(id=issue.id, title=issue.title, owner=UserRef.model_validate(issue.owner), solved_at=issue.solved_at)
-            for issue in await solved_during(session, meeting, ended_at)
+            for issue in await solved_during(session, meeting, until)
         ],
         todos_created=[
             SummaryTodo(
@@ -338,7 +337,7 @@ async def meeting_summary(session: AsyncSession, meeting: Meeting, ended_at: dat
                 due_date=todo.due_date,
                 created_at=todo.created_at,
             )
-            for todo in await created_during(session, meeting, ended_at)
+            for todo in await created_during(session, meeting, until)
         ],
         attendees=await meeting_attendees(session, meeting.id),
         ratings=ratings,
@@ -373,20 +372,20 @@ async def reviewed_measurables(session: AsyncSession, team_id: str, clock: Compa
     ]
 
 
-async def solved_during(session: AsyncSession, meeting: Meeting, ended_at: datetime) -> Sequence[Issue]:
+async def solved_during(session: AsyncSession, meeting: Meeting, until: datetime) -> Sequence[Issue]:
     issues = await session.scalars(
         select(Issue)
-        .where(Issue.team_id == meeting.team_id, Issue.solved_at.between(meeting.started_at, ended_at))
+        .where(Issue.team_id == meeting.team_id, Issue.solved_at.between(meeting.started_at, until))
         .options(selectinload(Issue.owner))
         .order_by(Issue.solved_at, Issue.id)
     )
     return issues.all()
 
 
-async def created_during(session: AsyncSession, meeting: Meeting, ended_at: datetime) -> Sequence[Todo]:
+async def created_during(session: AsyncSession, meeting: Meeting, until: datetime) -> Sequence[Todo]:
     todos = await session.scalars(
         select(Todo)
-        .where(Todo.team_id == meeting.team_id, Todo.created_at.between(meeting.started_at, ended_at))
+        .where(Todo.team_id == meeting.team_id, Todo.created_at.between(meeting.started_at, until))
         .options(selectinload(Todo.owner))
         .order_by(Todo.created_at, Todo.id)
     )

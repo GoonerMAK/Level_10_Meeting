@@ -34,7 +34,7 @@ async def read_meeting(meeting_id: str, session: DbSession, current_user: Signed
     return await service.get_meeting(session, current_user, meeting_id)
 
 
-@router.get("/meetings/{meeting_id}/summary", responses=error_responses(401, 404, 409))
+@router.get("/meetings/{meeting_id}/summary", responses=error_responses(401, 404))
 async def read_meeting_summary(meeting_id: str, session: DbSession, current_user: SignedInUser) -> MeetingSummary:
     return await service.get_meeting_summary(session, current_user, meeting_id)
 

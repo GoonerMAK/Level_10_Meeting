@@ -290,6 +290,7 @@ def test_attendees_rate_in_conclude_and_can_change_it(sign_in):
         {"user": {"id": "u1", "name": "Avery Admin"}, "rating": 10},
         {"user": {"id": "u2", "name": "Blake Brooks"}, "rating": 9},
     ]
+    assert changed.json()["rating"] == 9.5
 
 
 @pytest.mark.parametrize(
@@ -426,13 +427,20 @@ def test_a_meeting_nobody_rated_has_no_score(sign_in):
     assert (summary["rating"], summary["ratings"]) == (None, [])
 
 
-def test_a_running_meeting_has_no_summary_yet(sign_in):
+def test_a_running_meeting_summarises_what_happened_so_far(sign_in, fixed_clock):
+    discussed = new_issue(sign_in, "Summary so far")
+    fixed_clock.advance(timedelta(seconds=1))
     meeting_id = start(sign_in, "u2").json()["id"]
+    new_todo(sign_in, discussed, "Summary so far, first")
+    fixed_clock.advance(timedelta(minutes=1))
+    new_todo(sign_in, discussed, "Summary so far, second")
 
     response = summary_of(sign_in, "u2", meeting_id)
 
-    assert response.status_code == 409
-    assert response.json()["error"]["message"] == "This meeting is still running. Its summary is ready once it ends"
+    summary = response.json()
+    assert response.status_code == 200
+    assert summary["ended_at"] is None
+    assert [todo["title"] for todo in summary["todos_created"]] == ["Summary so far, first", "Summary so far, second"]
 
 
 def test_a_team_member_of_another_team_cannot_read_the_summary(sign_in):
