@@ -12,5 +12,6 @@ def in_issue_order(issues: Iterable[Issue]) -> list[Issue]:
     return sorted(issues, key=issue_order_key)
 
 
-def score_issue_title(measurable_name: str, week: date) -> str:
-    return f"{measurable_name} – week of {week:%b} {week.day}"
+def score_issue_title(measurable_name: str, week: date, today: date) -> str:
+    year = "" if week.year == today.year else f", {week.year}"
+    return f"{measurable_name}, week of {week:%b} {week.day}{year}"

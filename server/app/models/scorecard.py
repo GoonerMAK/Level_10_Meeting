@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, Text
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, SmallInteger, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -25,6 +25,7 @@ class Measurable(Timestamps, Base):
     goal_value: Mapped[Decimal | None] = mapped_column(Numeric)
     goal_min: Mapped[Decimal | None] = mapped_column(Numeric)
     goal_max: Mapped[Decimal | None] = mapped_column(Numeric)
+    position: Mapped[int] = mapped_column(SmallInteger)
 
     owner: Mapped["User"] = relationship()
 

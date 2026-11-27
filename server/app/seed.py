@@ -43,6 +43,15 @@ def parse_number(value: float | int | None) -> Decimal | None:
     return None if value is None else Decimal(str(value))
 
 
+def measurable_rows(items: list[Row]) -> list[Row]:
+    positions: dict[str, int] = {}
+    rows = []
+    for item in items:
+        positions[item["team_id"]] = positions.get(item["team_id"], 0) + 1
+        rows.append({**measurable_row(item), "position": positions[item["team_id"]]})
+    return rows
+
+
 def measurable_row(item: Row) -> Row:
     goal = item["goal"]
     return {
@@ -107,7 +116,7 @@ def build_rows(seed: Row) -> list[tuple[type[Base], list[Row]]]:
         (Team, [{**team, "company_id": company["id"]} for team in seed["teams"]]),
         (User, [{**user, "company_id": company["id"]} for user in seed["users"]]),
         (Membership, seed["memberships"]),
-        (Measurable, [measurable_row(item) for item in seed["measurables"]]),
+        (Measurable, measurable_rows(seed["measurables"])),
         (
             Score,
             [

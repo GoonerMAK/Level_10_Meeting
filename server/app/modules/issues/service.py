@@ -66,7 +66,7 @@ async def create_issue_from_score(
     if score_status(measurable, value, week_start, clock.current_week) is not ScoreStatus.OFF_TRACK:
         raise Conflict("Only off-track scores can become an Issue")
     for _ in range(SCORE_ISSUE_ATTEMPTS):
-        created_id = await insert_score_issue(session, current_user, measurable, week_start)
+        created_id = await insert_score_issue(session, current_user, measurable, week_start, clock.today)
         if created_id is not None:
             await publish_change(measurable.team_id, "issues")
             return await load_issue(session, created_id), True
@@ -77,14 +77,14 @@ async def create_issue_from_score(
 
 
 async def insert_score_issue(
-    session: AsyncSession, current_user: CurrentUser, measurable: Measurable, week_start: date
+    session: AsyncSession, current_user: CurrentUser, measurable: Measurable, week_start: date, today: date
 ) -> str | None:
     statement = (
         insert(Issue)
         .values(
             id=str(uuid4()),
             team_id=measurable.team_id,
-            title=score_issue_title(measurable.name, week_start),
+            title=score_issue_title(measurable.name, week_start, today),
             owner_id=current_user.id,
             source_measurable_id=measurable.id,
             source_week_start=week_start,
