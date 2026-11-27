@@ -13,6 +13,17 @@ BAD_INPUTS = [
                  "A note is required to solve an Issue, up to 2,000 characters", id="solve_without_note"),
     pytest.param("put", "/api/measurables/m1/scores/2026-11-02", {"value": "lots"}, "value",
                  "Score must be a number up to 11 digits, with up to 4 decimal places", id="score_not_a_number"),
+    pytest.param("patch", "/api/issues/i1", {"priority": 6}, "priority",
+                 "Priority must be 1 to 5", id="priority_6_on_an_existing_issue"),
+    *[
+        pytest.param("put", f"/api/measurables/m1/scores/{week}", {"value": 5}, "week_start",
+                     "Scores can only be entered for the last 13 weeks, as a Monday", id=name)
+        for week, name in [
+            ("2026-08-10", "week_14_back"),
+            ("2026-11-16", "future_week"),
+            ("2026-11-03", "not_a_monday"),
+        ]
+    ],
 ]
 
 
