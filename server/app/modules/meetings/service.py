@@ -11,10 +11,10 @@ from app.core.errors import Conflict, Forbidden, NotFound
 from app.core.permissions import CurrentUser, ensure_can_read_team
 from app.core.schemas import UserRef
 from app.db.session import SessionLocal
-from app.models import Meeting, MeetingAttendee, User
+from app.models import Meeting, MeetingAttendee, MeetingRating, User
 from app.models.enums import MeetingSection, UserRole
 from app.modules.live.hub import current_hub
-from app.modules.meetings.schemas import MeetingState
+from app.modules.meetings.schemas import MeetingRatingOut, MeetingState
 from app.modules.teams.service import get_readable_team
 
 START_ATTEMPTS = 3
@@ -128,6 +128,37 @@ async def end_meeting(session: AsyncSession, current_user: CurrentUser, meeting_
     return await meeting_state(session, await load_meeting(session, meeting_id))
 
 
+async def rate_meeting(session: AsyncSession, current_user: CurrentUser, meeting_id: str, rating: int) -> MeetingState:
+    meeting = await get_readable_meeting(session, current_user, meeting_id)
+    if current_user.role is UserRole.OBSERVER:
+        raise Forbidden("Observers can follow the meeting but cannot rate it")
+    meeting = await session.scalar(
+        select(Meeting).where(Meeting.id == meeting_id).with_for_update().execution_options(populate_existing=True)
+    )
+    if not await is_attendee(session, meeting_id, current_user.id):
+        raise Forbidden("Join the meeting before rating it")
+    ensure_running(meeting)
+    if meeting.current_section is not MeetingSection.CONCLUDE:
+        raise Conflict("Ratings open in Conclude")
+    now = utc_now()
+    await session.execute(
+        insert(MeetingRating)
+        .values(meeting_id=meeting_id, user_id=current_user.id, rating=rating, rated_at=now)
+        .on_conflict_do_update(
+            index_elements=[MeetingRating.meeting_id, MeetingRating.user_id],
+            set_={"rating": rating, "rated_at": now, "updated_at": now},
+        )
+    )
+    await session.commit()
+    await publish_meeting(meeting.team_id, meeting_id)
+    return await meeting_state(session, await load_meeting(session, meeting_id))
+
+
+async def is_attendee(session: AsyncSession, meeting_id: str, user_id: str) -> bool:
+    attendee = await session.get(MeetingAttendee, (meeting_id, user_id))
+    return attendee is not None
+
+
 async def active_meeting_state(session: AsyncSession, team_id: str) -> MeetingState | None:
     active_id = await find_active_meeting_id(session, team_id)
     return await meeting_state(session, await load_meeting(session, active_id)) if active_id else None
@@ -180,6 +211,12 @@ async def meeting_state(session: AsyncSession, meeting: Meeting) -> MeetingState
         .where(MeetingAttendee.meeting_id == meeting.id)
         .order_by(User.name, User.id)
     )
+    ratings = await session.execute(
+        select(User, MeetingRating.rating)
+        .join(MeetingRating, MeetingRating.user_id == User.id)
+        .where(MeetingRating.meeting_id == meeting.id)
+        .order_by(User.name, User.id)
+    )
     timer = None
     if meeting.current_section is not None and meeting.section_started_at is not None:
         timer = section_timer(meeting.current_section, meeting.section_started_at, now)
@@ -188,6 +225,7 @@ async def meeting_state(session: AsyncSession, meeting: Meeting) -> MeetingState
         team_id=meeting.team_id,
         facilitator=UserRef.model_validate(facilitator),
         attendees=[UserRef.model_validate(attendee) for attendee in attendees],
+        ratings=[MeetingRatingOut(user=UserRef.model_validate(user), rating=rating) for user, rating in ratings],
         started_at=meeting.started_at,
         ended_at=meeting.ended_at,
         section=meeting.current_section,

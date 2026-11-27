@@ -125,12 +125,16 @@ def test_a_reconnect_gets_the_current_state(sign_in):
     assert (meeting["meeting"]["id"], section_of(meeting)) == (meeting_id, "ids")
 
 
-
-def test_the_end_shows_up_live(sign_in):
+def test_ratings_and_the_end_show_up_live(sign_in):
     meeting_id = sign_in("u2").post(START).json()["id"]
+    for section in ("scorecard", "ids"):
+        sign_in("u2").post(f"/api/meetings/{meeting_id}/next", json={"from_section": section})
     with connect(sign_in, "u3") as live:
         opened(live)
+        sign_in("u2").put(f"/api/meetings/{meeting_id}/rating", json={"rating": 9})
+        rated = live.receive_json()
         sign_in("u2").post(f"/api/meetings/{meeting_id}/end")
         ended = live.receive_json()
 
+    assert rated["meeting"]["ratings"] == [{"user": {"id": "u2", "name": "Blake Brooks"}, "rating": 9}]
     assert ended["meeting"]["ended_at"] is not None
