@@ -51,7 +51,7 @@ def test_seed_loads_and_can_run_again(migrated_database):
 
 
 def test_seed_rerun_keeps_changes_made_in_the_app(migrated_database):
-    async def change_data_then_reseed() -> Issue:
+    async def change_data_then_reseed() -> str | None:
         await seed_database(settings.seed_path)
         async with SessionLocal() as session, session.begin():
             seeded_issue = await session.get(Issue, "i5")
@@ -69,10 +69,13 @@ def test_seed_rerun_keeps_changes_made_in_the_app(migrated_database):
             )
         await seed_database(settings.seed_path)
         async with SessionLocal() as session, session.begin():
-            reseeded_issue = await session.get(Issue, "i5")
             await session.delete(await session.get(Issue, "app_issue"))
+            await session.flush()
+            reseeded_issue = await session.get(Issue, "i5")
+            kept_note = reseeded_issue.resolution_note
+            reseeded_issue.solved_at = None
+            reseeded_issue.resolution_note = None
         await engine.dispose()
-        return reseeded_issue
+        return kept_note
 
-    reseeded_issue = asyncio.run(change_data_then_reseed())
-    assert reseeded_issue.resolution_note == "Solved in the app"
+    assert asyncio.run(change_data_then_reseed()) == "Solved in the app"
