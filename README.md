@@ -1,5 +1,23 @@
 # Level_10_Meeting
 
+## Tests
+
+```bash
+tools/test.sh
+```
+
+- Runs the server tests (pytest), then the two-browser test (Playwright, `web/e2e/`).
+- The two-browser test builds its own database (`<db>_e2e`: migrate, then seed), builds the web app, and starts the server on 8001 and the web app on 3001. Dev servers and dev data are untouched.
+- Blake (Team Member) starts the Leadership meeting and Ellis (Observer) joins. Blake moves to IDS, then Conclude, then ends it. Ellis's browser shows each section within 2 seconds, then the summary, and never shows Next or End.
+
+**Failure artifact**: one run with the server's next-section broadcast removed. Blake's browser moved to IDS; Ellis's stayed on Scorecard.
+
+| Facilitator | Second browser |
+|---|---|
+| ![Facilitator on IDS](web/e2e/failure/facilitator.png) | ![Second browser still on Scorecard](web/e2e/failure/follower.png) |
+
+Full trace: `web/e2e/failure/trace.zip`. Open it at [trace.playwright.dev](https://trace.playwright.dev) or with `pnpm --dir web exec playwright show-trace e2e/failure/trace.zip`.
+
 ## Rules report
 
 ```bash
