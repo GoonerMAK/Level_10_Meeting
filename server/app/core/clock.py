@@ -1,14 +1,16 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
+from time import monotonic
 
 from app.core.config import settings
 
 
 class TickingClock:
-    def __init__(self, app_now: datetime, real_start: datetime) -> None:
-        self.offset = real_start - app_now
+    def __init__(self, resume_from: datetime) -> None:
+        self.resume_from = resume_from
+        self.started = monotonic()
 
     def now(self) -> datetime:
-        return datetime.now(UTC) - self.offset
+        return self.resume_from + timedelta(seconds=monotonic() - self.started)
 
 
 class FixedClock:
@@ -23,7 +25,7 @@ class FixedClock:
 
 
 Clock = TickingClock | FixedClock
-installed_clock: Clock = TickingClock(settings.app_now, datetime.now(UTC))
+installed_clock: Clock = TickingClock(settings.app_now)
 
 
 def use_clock(clock: Clock) -> None:
