@@ -1,3 +1,4 @@
+import time
 from collections.abc import MutableMapping
 from typing import Any
 
@@ -11,6 +12,24 @@ from app.modules.auth.schemas import UserChoice
 from app.modules.teams.schemas import TeamSummary
 
 SIGNED_IN_USER_KEY = "user_id"
+SIGNED_IN_AT_KEY = "signed_in_at"
+RENEWED_AT_KEY = "renewed_at"
+SIGN_IN_IDLE_SECONDS = 3 * 24 * 60 * 60
+SIGN_IN_CAP_SECONDS = 7 * 24 * 60 * 60
+RENEW_AFTER_SECONDS = 60 * 60
+
+
+def now_seconds() -> int:
+    return int(time.time())
+
+
+def signed_in_user_id(cookie: MutableMapping[str, Any]) -> str | None:
+    now = now_seconds()
+    if now - cookie.get(SIGNED_IN_AT_KEY, 0) > SIGN_IN_CAP_SECONDS:
+        return None
+    if now - cookie.get(RENEWED_AT_KEY, 0) > RENEW_AFTER_SECONDS:
+        cookie[RENEWED_AT_KEY] = now
+    return cookie.get(SIGNED_IN_USER_KEY)
 
 
 async def find_current_user(session: AsyncSession, user_id: str | None) -> CurrentUser | None:
@@ -38,6 +57,7 @@ async def sign_in(session: AsyncSession, cookie: MutableMapping[str, Any], user_
     current_user = await find_current_user(session, user_id)
     if current_user is None:
         raise InvalidInput("Unknown user", "user_id")
+    now = now_seconds()
     cookie.clear()
-    cookie[SIGNED_IN_USER_KEY] = current_user.id
+    cookie.update({SIGNED_IN_USER_KEY: current_user.id, SIGNED_IN_AT_KEY: now, RENEWED_AT_KEY: now})
     return current_user

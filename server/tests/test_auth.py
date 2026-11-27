@@ -4,6 +4,11 @@ from base64 import b64encode
 import pytest
 from itsdangerous import TimestampSigner
 
+from app.modules.auth import service
+
+DAY = 24 * 60 * 60
+SIGNED_IN_AT = 1_800_000_000
+
 
 def cookie_signed_with_another_secret(user_id):
     payload = b64encode(json.dumps({"user_id": user_id}).encode())
@@ -38,13 +43,13 @@ def test_sign_in_remembers_the_user(client):
     }
 
 
-def test_sign_in_cookie_is_hidden_from_page_scripts_and_lasts_7_days(client):
+def test_sign_in_cookie_is_hidden_from_page_scripts_and_lasts_3_idle_days(client):
     response = client.post("/api/auth/sign-in", json={"user_id": "u2"})
 
     cookie = response.headers["set-cookie"].lower()
     assert "httponly" in cookie
     assert "samesite=lax" in cookie
-    assert "max-age=604800" in cookie
+    assert "max-age=259200" in cookie
 
 
 def test_signing_in_as_another_user_switches(sign_in):
@@ -93,3 +98,49 @@ def test_only_a_signed_in_user_is_known(client, headers, cookie):
 
     assert response.status_code == 401
     assert response.json() == {"error": {"code": "unauthorized", "message": "Choose a user first"}}
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    now = {"seconds": SIGNED_IN_AT}
+    monkeypatch.setattr(service, "now_seconds", lambda: now["seconds"])
+    monkeypatch.setattr(TimestampSigner, "get_timestamp", lambda _signer: now["seconds"])
+
+    def move_to(seconds_after_sign_in):
+        now["seconds"] = SIGNED_IN_AT + seconds_after_sign_in
+
+    return move_to
+
+
+def me_status_at(client, clock, seconds_after_sign_in):
+    clock(seconds_after_sign_in)
+    return client.get("/api/auth/me").status_code
+
+
+def test_using_the_app_keeps_the_sign_in_alive(sign_in, clock):
+    client = sign_in("u2")
+
+    assert me_status_at(client, clock, 2 * DAY) == 200
+    assert me_status_at(client, clock, 4 * DAY) == 200
+
+
+def test_sign_in_ends_after_3_idle_days(sign_in, clock):
+    client = sign_in("u2")
+
+    assert me_status_at(client, clock, 3 * DAY + 1) == 401
+
+
+def test_sign_in_ends_7_days_after_signing_in_even_when_active(sign_in, clock):
+    client = sign_in("u2")
+
+    assert [me_status_at(client, clock, day * DAY) for day in (2, 4, 6)] == [200, 200, 200]
+    assert me_status_at(client, clock, 7 * DAY + 1) == 401
+
+
+def test_sign_in_renews_at_most_once_an_hour(sign_in, clock):
+    client = sign_in("u2")
+    clock(30 * 60)
+
+    assert "set-cookie" not in client.get("/api/auth/me").headers
+    clock(2 * 60 * 60)
+    assert "set-cookie" in client.get("/api/auth/me").headers
