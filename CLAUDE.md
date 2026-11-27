@@ -9,7 +9,7 @@
 | Feature modules (router, schemas, service) | `server/app/modules/` |
 | Migrations | `server/alembic/versions/` |
 | Dev scripts | `tools/` |
-| Backlog, in build order | GitHub issues #7–#23, each opens with an **Order:** line |
+| Backlog, in build order | GitHub issues #7–#25, each opens with an **Order:** line |
 | Plugins + cloud setup hook | `.claude/settings.json` |
 
 Run in order: `tools/db-up.sh` (start DB), `tools/db-migrate.sh` (migrate + drift check), `tools/seed.sh` (rerunnable), `tools/server.sh` (API on port 8000, reload). Tests: `tools/test.sh` (own `level10_test` DB; CI runs the same).
