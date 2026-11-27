@@ -32,6 +32,9 @@ POSTGRES_PORT=5432
 DATABASE_URL=postgresql+asyncpg://level10:level10@localhost:5432/level10
 ENV
 fi
+if ! grep -q '^SESSION_SECRET=' "$REPO_ROOT/.env"; then
+  echo "SESSION_SECRET=$(python3 -c 'import secrets; print(secrets.token_hex(32))')" >> "$REPO_ROOT/.env"
+fi
 
 command -v uv >/dev/null || python3 -m pip install --quiet uv
 
