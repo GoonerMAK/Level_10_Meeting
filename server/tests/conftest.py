@@ -60,13 +60,27 @@ def seeded_database(migrated_database):
     asyncio.run(seed())
 
 
+@pytest.fixture(autouse=True)
+def fixed_clock():
+    from app.core import clock
+    from app.core.config import settings
+
+    previous = clock.installed_clock
+    fixed = clock.FixedClock(settings.app_now)
+    clock.use_clock(fixed)
+    yield fixed
+    clock.use_clock(previous)
+
+
 @pytest.fixture
-def client(seeded_database):
+def client(seeded_database, fixed_clock):
     from fastapi.testclient import TestClient
 
+    from app.core.clock import use_clock
     from app.main import app
 
     with TestClient(app) as test_client:
+        use_clock(fixed_clock)
         yield test_client
 
 

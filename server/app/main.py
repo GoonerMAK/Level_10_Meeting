@@ -6,8 +6,10 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.core.clock import TickingClock, use_clock
 from app.core.config import settings
 from app.core.errors import register_error_handlers
+from app.db.clock import load_clock_start
 from app.db.session import engine
 from app.modules.auth.router import router as auth_router
 from app.modules.auth.service import SIGN_IN_IDLE_SECONDS
@@ -25,6 +27,7 @@ logger = logging.getLogger("uvicorn.error")
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     async with engine.connect() as connection:
         server_version = await connection.scalar(text("SHOW server_version"))
+        use_clock(TickingClock(settings.app_now, await load_clock_start(connection, settings.app_now)))
     logger.info("Database connection established (PostgreSQL %s)", server_version)
     try:
         yield
