@@ -6,9 +6,9 @@
 tools/test.sh
 ```
 
-- Runs the server tests (pytest), then the two-browser test (Playwright, `web/e2e/`).
+- Runs the server tests (pytest), the web unit tests (Vitest), then the two-browser test (Playwright, `web/e2e/`).
 - The two-browser test builds its own database (`<db>_e2e`: migrate, then seed), builds the web app, and starts the server on 8001 and the web app on 3001. Dev servers and dev data are untouched.
-- Blake (Team Member) starts the Leadership meeting and Ellis (Observer) joins. Blake moves to IDS, then Conclude, then ends it. Ellis's browser shows each section within 2 seconds, then the summary, and never shows Next or End.
+- Blake (Team Member) starts the Leadership meeting and Ellis (Observer) joins. Blake moves to IDS, adds an Issue, moves to Conclude, rates 8, then ends it. Ellis's browser shows each section, the new Issue and the 8.0 average within 2 seconds, then the summary with Blake's rating. Ellis never sees Next, End or the rating buttons.
 
 **Failure artifact**: one run with the server's next-section broadcast removed. Blake's browser moved to IDS; Ellis's stayed on Scorecard.
 

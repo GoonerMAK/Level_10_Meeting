@@ -27,17 +27,30 @@ test("the facilitator advances the agenda and the second browser follows", async
   await expect(ellis.getByText("Blake Brooks runs this meeting")).toBeVisible();
   await expect(blake.getByRole("list", { name: "Attendees" })).toContainText("Ellis Evans", FOLLOWS_WITHIN);
 
-  for (const section of ["IDS", "Conclude"]) {
+  const moveTo = async (section: string) => {
     await blake.getByRole("button", { name: `Next: ${section}` }).click();
     await expect(sectionHeading(blake, section)).toBeVisible();
     await expect(sectionHeading(ellis, section)).toBeVisible(FOLLOWS_WITHIN);
     await expect(ellis.getByRole("list", { name: "Agenda" }).locator('[aria-current="step"]')).toContainText(section);
     await expect(ellis.getByRole("button", { name: /^Next:/ })).toHaveCount(0);
     await expect(ellis.getByRole("button", { name: "End meeting" })).toHaveCount(0);
-  }
+  };
+
+  await moveTo("IDS");
+  await blake.getByRole("button", { name: "New Issue" }).click();
+  await blake.getByLabel("Title").fill("Hiring plan slipped a month");
+  await blake.getByRole("button", { name: "Add Issue" }).click();
+  await expect(ellis.getByText("Hiring plan slipped a month")).toBeVisible(FOLLOWS_WITHIN);
+
+  await moveTo("Conclude");
+  await expect(ellis.getByRole("group", { name: "Your rating" })).toHaveCount(0);
+  await blake.getByRole("group", { name: "Your rating" }).getByRole("button", { name: "8", exact: true }).click();
+  await expect(ellis.getByText("8.0", { exact: true })).toBeVisible(FOLLOWS_WITHIN);
 
   await blake.getByRole("button", { name: "End meeting" }).click();
   await blake.getByRole("dialog").getByRole("button", { name: "End meeting" }).click();
   await expect(sectionHeading(blake, "Meeting summary")).toBeVisible();
   await expect(sectionHeading(ellis, "Meeting summary")).toBeVisible(FOLLOWS_WITHIN);
+  await expect(ellis.getByRole("list", { name: "Attendees" })).toContainText("Blake Brooks · 8");
+  await expect(ellis.getByText("Rating from 1")).toBeVisible();
 });
