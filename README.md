@@ -1,5 +1,20 @@
 # Level_10_Meeting
 
+## Run it
+
+```bash
+docker compose up --build
+```
+
+- Open http://localhost:3000 and pick a seeded user. API docs: http://localhost:8000/docs.
+- No setup needed: every setting has a default. A `.env` (see `.env.example`) overrides any of them; `WEB_PORT` and `API_PORT` change the ports.
+- Start order: Postgres, then `migrate` (migrations + seed, then exits), then the API, then the web app. The seed only adds missing rows, so rerunning keeps your changes; `docker compose down -v` resets to the seed.
+- The session secret default is for local demos only.
+
+**Tracing problems**
+- Every response carries an `X-Request-ID` header. `docker compose logs server` shows one JSON line per refused (4xx), failed or crashed (5xx, with traceback) or slow (over `SLOW_REQUEST_MS`, default 500) request, with that id, the user and the error code. Successful requests write nothing. `LOG_LEVEL=WARNING` hides refusals.
+- Audit trail: every data change (scores, Issues, To-Dos, meetings, ratings) is saved with who, when and each field's before and after, in the same transaction as the change. Read it at `GET /api/teams/{team_id}/activity`, newest first.
+
 ## Tests
 
 ```bash

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     web_origin: str = "http://localhost:3000"
     seed_path: Path = REPO_ROOT / "assessment" / "seed.json"
     app_now: datetime = datetime(2026, 11, 11, 15, 0, tzinfo=UTC)
+    log_level: str = "INFO"
+    slow_request_ms: int = 500
 
     @field_validator("app_now")
     @classmethod

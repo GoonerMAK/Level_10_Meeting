@@ -12,9 +12,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.core.clock import TickingClock, use_clock
 from app.core.config import settings
 from app.core.error_docs import without_framework_errors
+from app.core.logs import RequestLog, configure_logging
 from app.core.errors import register_error_handlers
 from app.db.clock import keep_saving_app_time, load_app_time, save_app_time
 from app.db.session import engine
+from app.modules.activity.router import router as activity_router
 from app.modules.auth.router import router as auth_router
 from app.modules.auth.service import SIGN_IN_IDLE_SECONDS
 from app.modules.issues.router import router as issues_router
@@ -59,7 +61,9 @@ API_DESCRIPTION = (
 )
 
 app = FastAPI(title="Level 10 Meeting API", description=API_DESCRIPTION, lifespan=lifespan)
+configure_logging(settings.log_level)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret.get_secret_value(), max_age=SIGN_IN_IDLE_SECONDS)
+app.add_middleware(RequestLog, slow_after_ms=settings.slow_request_ms)
 register_error_handlers(app)
 
 ROUTERS = (
@@ -70,6 +74,7 @@ ROUTERS = (
     todos_router,
     rocks_router,
     meetings_router,
+    activity_router,
     live_router,
 )
 for router in ROUTERS:

@@ -17,7 +17,8 @@ from app.core.permissions import CurrentUser, ensure_can_read_team
 from app.core.schemas import UserRef
 from app.db.session import SessionLocal
 from app.models import Issue, Measurable, Meeting, MeetingAttendee, MeetingRating, Score, Todo, User
-from app.models.enums import MeetingSection, UserRole
+from app.models.enums import AuditAction, AuditEntity, MeetingSection, UserRole
+from app.modules.activity.service import Changed, record
 from app.modules.live.hub import current_hub
 from app.modules.live.messages import MeetingMessage
 from app.modules.meetings.schemas import (
@@ -67,8 +68,31 @@ async def insert_meeting(session: AsyncSession, current_user: CurrentUser, team_
         .returning(Meeting.id)
     )
     created_id = await session.scalar(statement)
+    if created_id is not None:
+        record_meeting(session, current_user, team_id, created_id, AuditAction.CREATED, [("section", None, AGENDA[0])])
     await session.commit()
     return created_id
+
+
+def record_meeting(
+    session: AsyncSession,
+    current_user: CurrentUser | None,
+    team_id: str,
+    meeting_id: str,
+    action: AuditAction,
+    changes: list[Changed],
+    entity: AuditEntity = AuditEntity.MEETING,
+) -> None:
+    record(
+        session,
+        user_id=current_user.id if current_user else None,
+        team_id=team_id,
+        entity=entity,
+        entity_id=meeting_id,
+        label="Level 10 Meeting",
+        action=action,
+        changes=changes,
+    )
 
 
 async def find_active_meeting_id(session: AsyncSession, team_id: str) -> str | None:
@@ -101,6 +125,8 @@ async def join_meeting_by_id(session: AsyncSession, current_user: CurrentUser, m
         .on_conflict_do_nothing(index_elements=[MeetingAttendee.meeting_id, MeetingAttendee.user_id])
         .returning(MeetingAttendee.user_id)
     )
+    if joined is not None:
+        record_meeting(session, current_user, meeting.team_id, meeting_id, AuditAction.UPDATED, [("attendee", None, joined)])
     await session.commit()
     if joined is not None:
         await publish_meeting(meeting.team_id, meeting_id)
@@ -122,6 +148,10 @@ async def move_to_next_section(
         .values(current_section=following, section_started_at=func.greatest(utc_now(), Meeting.section_started_at))
         .returning(Meeting.id)
     )
+    if moved is not None:
+        record_meeting(
+            session, current_user, meeting.team_id, meeting_id, AuditAction.UPDATED, [("section", from_section, following)]
+        )
     await session.commit()
     if moved is None:
         raise Conflict("The meeting has already moved on")
@@ -132,12 +162,17 @@ async def move_to_next_section(
 async def end_meeting(session: AsyncSession, current_user: CurrentUser, meeting_id: str) -> MeetingState:
     meeting = await get_facilitated_meeting(session, current_user, meeting_id)
     await lock_meeting(session, meeting_id)
+    ending_section = meeting.current_section
     ended = await session.scalar(
         update(Meeting)
         .where(Meeting.id == meeting_id, ACTIVE)
         .values(ended_at=func.greatest(utc_now(), Meeting.started_at), current_section=None, section_started_at=None)
         .returning(Meeting.id)
     )
+    if ended is not None:
+        record_meeting(
+            session, current_user, meeting.team_id, meeting_id, AuditAction.UPDATED, [("section", ending_section, None)]
+        )
     await session.commit()
     if ended is None:
         raise Conflict("This meeting has already ended")
@@ -177,6 +212,15 @@ async def end_if_still_empty(meeting: Meeting, ended_at: datetime) -> bool:
                 .values(ended_at=ended_at, current_section=None, section_started_at=None)
                 .returning(Meeting.id)
             )
+            if ended is not None:
+                record_meeting(
+                    session,
+                    None,
+                    meeting.team_id,
+                    meeting.id,
+                    AuditAction.UPDATED,
+                    [("section", meeting.current_section, None), ("ended_by", None, "nobody connected for 30 minutes")],
+                )
             await session.commit()
     if ended is None:
         return False
@@ -195,6 +239,8 @@ async def rate_meeting(session: AsyncSession, current_user: CurrentUser, meeting
     if meeting.current_section is not MeetingSection.CONCLUDE:
         raise Conflict("Ratings open in Conclude")
     now = utc_now()
+    previous = await session.get(MeetingRating, (meeting_id, current_user.id))
+    previous_rating = previous.rating if previous else None
     await session.execute(
         insert(MeetingRating)
         .values(meeting_id=meeting_id, user_id=current_user.id, rating=rating, rated_at=now)
@@ -202,6 +248,15 @@ async def rate_meeting(session: AsyncSession, current_user: CurrentUser, meeting
             index_elements=[MeetingRating.meeting_id, MeetingRating.user_id],
             set_={"rating": rating, "rated_at": now, "updated_at": now},
         )
+    )
+    record_meeting(
+        session,
+        current_user,
+        meeting.team_id,
+        meeting_id,
+        AuditAction.CREATED if previous_rating is None else AuditAction.UPDATED,
+        [("rating", previous_rating, rating)],
+        entity=AuditEntity.MEETING_RATING,
     )
     await session.commit()
     await publish_meeting(meeting.team_id, meeting_id)

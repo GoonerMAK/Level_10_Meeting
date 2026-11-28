@@ -1,0 +1,9 @@
+.git
+.env
+.claude
+.worktrees
+.playwright-mcp
+**/.venv
+**/__pycache__
+**/.pytest_cache
+web
