@@ -2,13 +2,19 @@
 
 | Area | Path |
 |---|---|
+| Setup, tests, assumptions, limitations, AI use | `README.md` |
+| Decision record (brief 2.8), written at the end | `DECISIONS.md` |
 | Spec, seed, report format | `assessment/` |
+| Rules report output, checked in CI | `rules_report.json` |
+| CI (server, web, two-browser, compose) | `.github/workflows/ci.yml` |
 | Infra (full stack, env) | `docker-compose.yml` (db, migrate, server, web), `compose.dev.yml` (publishes the DB for local tools), `.env.example` |
 | Server (uv, FastAPI, SQLAlchemy async) | `server/app/` |
 | Business rules (pure functions, brief 2.6) | `server/app/calculations/` |
 | Feature modules (router, schemas, service) | `server/app/modules/` |
 | Migrations | `server/alembic/versions/` |
+| Server tests (pytest, random order, seed check) | `server/tests/` |
 | Web app (Next.js 16, shadcn, TanStack Query, pnpm) | `web/src/` (`app/` routes, `components/`, `lib/api/` typed client, `lib/live/` WebSocket) |
+| Two-browser test and failure artifact | `web/e2e/` |
 | Dev scripts | `tools/` |
 | Backlog, in build order | GitHub issues #7–#25, each opens with an **Order:** line |
 | Plugins + cloud setup hook | `.claude/settings.json` |
