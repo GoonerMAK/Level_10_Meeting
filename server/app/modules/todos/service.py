@@ -11,6 +11,8 @@ from app.core.clock import utc_now
 from app.core.errors import InvalidInput, NotFound
 from app.core.permissions import CurrentUser
 from app.models import Issue, Todo, User
+from app.models.enums import AuditAction, AuditEntity
+from app.modules.activity.service import Changed, record
 from app.modules.live.hub import publish_change
 from app.modules.teams.service import can_own_todos, company_clock, get_changeable_row, readable_team_clock
 from app.modules.todos.schemas import TodoList, TodoOut
@@ -53,6 +55,21 @@ async def ensure_can_own_todos(session: AsyncSession, team_id: str, owner_id: st
         raise InvalidInput("Owner must be a Team Member of this team or an Admin", "owner_id")
 
 
+def record_todo(
+    session: AsyncSession, current_user: CurrentUser, todo: Todo, action: AuditAction, changes: list[Changed]
+) -> None:
+    record(
+        session,
+        user_id=current_user.id,
+        team_id=todo.team_id,
+        entity=AuditEntity.TODO,
+        entity_id=todo.id,
+        label=todo.title,
+        action=action,
+        changes=changes,
+    )
+
+
 async def add_todo_to_issue(
     session: AsyncSession, current_user: CurrentUser, issue_id: str, title: str, owner_id: str
 ) -> TodoOut:
@@ -68,6 +85,13 @@ async def add_todo_to_issue(
         source_issue_id=issue.id,
     )
     session.add(todo)
+    record_todo(
+        session,
+        current_user,
+        todo,
+        AuditAction.CREATED,
+        [("owner_id", None, owner_id), ("due_date", None, todo.due_date), ("source_issue_id", None, issue.id)],
+    )
     await session.commit()
     await publish_change(issue.team_id, "todos")
     return await todo_out(session, todo.id, clock)
@@ -75,10 +99,13 @@ async def add_todo_to_issue(
 
 async def set_todo_done(session: AsyncSession, current_user: CurrentUser, todo_id: str, done: bool) -> TodoOut:
     todo = await get_changeable_row(session, current_user, Todo, todo_id, "To-Do")
+    previous = todo.done_at
     if done and todo.done_at is None:
         todo.done_at = utc_now()
     if not done:
         todo.done_at = None
+    if todo.done_at != previous:
+        record_todo(session, current_user, todo, AuditAction.UPDATED, [("done_at", previous, todo.done_at)])
     await session.commit()
     await publish_change(todo.team_id, "todos")
     return await todo_out(session, todo_id, await company_clock(session, todo.team_id))

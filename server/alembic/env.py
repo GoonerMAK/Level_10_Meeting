@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.models import Base
 
 if context.config.config_file_name is not None:
-    fileConfig(context.config.config_file_name)
+    fileConfig(context.config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 database_url = context.config.get_main_option("sqlalchemy.url") or settings.database_url

@@ -430,10 +430,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/teams/{team_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Activity */
+        get: operations["read_activity_api_teams__team_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityOut */
+        ActivityOut: {
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            user: components["schemas"]["UserRef"] | null;
+            entity: components["schemas"]["AuditEntity"];
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Label */
+            entity_label: string;
+            action: components["schemas"]["AuditAction"];
+            /** Changes */
+            changes: components["schemas"]["Change"][];
+        };
+        /**
+         * AuditAction
+         * @enum {string}
+         */
+        AuditAction: "created" | "updated" | "deleted" | "solved";
+        /**
+         * AuditEntity
+         * @enum {string}
+         */
+        AuditEntity: "score" | "issue" | "todo" | "meeting" | "meeting_rating";
+        /** Change */
+        Change: {
+            /** Field */
+            field: string;
+            /** Before */
+            before: unknown;
+            /** After */
+            after: unknown;
+        };
         /** Completion */
         Completion: {
             /** Due */
@@ -2773,6 +2828,88 @@ export interface operations {
                      *       "error": {
                      *         "code": "conflict",
                      *         "message": "This Issue is already solved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Some input is invalid; each bad field is listed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_input",
+                     *         "message": "Priority must be 1 to 5",
+                     *         "fields": [
+                     *           {
+                     *             "field": "priority",
+                     *             "message": "Priority must be 1 to 5"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    read_activity_api_teams__team_id__activity_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before_id?: number | null;
+            };
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityOut"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "Choose a user first"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not found, or on a team you can't open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Team not found"
                      *       }
                      *     }
                      */
