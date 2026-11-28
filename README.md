@@ -10,6 +10,7 @@ docker compose up --build
 - No setup needed: every setting has a default. A `.env` (see `.env.example`) overrides any of them; `WEB_PORT` and `API_PORT` change the ports.
 - Start order: Postgres, then `migrate` (migrations + seed, then exits), then the API, then the web app. The seed only adds missing rows, so rerunning keeps your changes; `docker compose down -v` resets to the seed.
 - The session secret default is for local demos only.
+- `tools/compose-check.sh` builds and starts the same stack under its own project name, checks the API docs, the sign-in page, the seeded users and a sign-in through the web app, then removes it. Your own stack and data are untouched. CI runs it on every PR.
 
 **Tracing problems**
 - Every response carries an `X-Request-ID` header. `docker compose logs server` shows one JSON line per refused (4xx), failed or crashed (5xx, with traceback) or slow (over `SLOW_REQUEST_MS`, default 500) request, with that id, the user and the error code. Successful requests write nothing. `LOG_LEVEL=WARNING` hides refusals.

@@ -66,6 +66,13 @@ jobs:
           bash ../tools/web-api-types.sh
           git diff --exit-code src/lib/api/schema.d.ts
 
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose up starts the app and it responds
+        run: tools/compose-check.sh
+
   e2e:
     runs-on: ubuntu-latest
     services:
