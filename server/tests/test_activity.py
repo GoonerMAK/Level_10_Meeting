@@ -14,6 +14,10 @@ def summary(entries):
     return [(entry["action"], entry["user"]["id"] if entry["user"] else None, entry["changes"]) for entry in entries]
 
 
+def forget_activity(entity_id):
+    asyncio.run(execute_sql(f"DELETE FROM activity_logs WHERE entity_id = '{entity_id}'"))
+
+
 @pytest.fixture
 def cleanup():
     statements = []
@@ -24,6 +28,7 @@ def cleanup():
 def test_score_changes_are_recorded_with_before_and_after(sign_in, cleanup):
     cleanup("DELETE FROM scores WHERE measurable_id = 'm1' AND week_start = '2026-11-09'")
     cleanup("DELETE FROM activity_logs WHERE entity_id = 'm1:2026-11-09'")
+    forget_activity("m1:2026-11-09")
     user = sign_in("u2")
     user.put("/api/measurables/m1/scores/2026-11-09", json={"value": 7})
     user.put("/api/measurables/m1/scores/2026-11-09", json={"value": 8.5})
@@ -77,6 +82,7 @@ def test_a_meeting_is_traced_from_start_to_end(sign_in, cleanup):
 def test_activity_pages_newest_first(sign_in, cleanup):
     cleanup("DELETE FROM scores WHERE measurable_id = 'm7' AND week_start = '2026-11-09'")
     cleanup("DELETE FROM activity_logs WHERE entity_id = 'm7:2026-11-09'")
+    forget_activity("m7:2026-11-09")
     user = sign_in("u8")
     for value in (1, 2, 3):
         user.put("/api/measurables/m7/scores/2026-11-09", json={"value": value})
