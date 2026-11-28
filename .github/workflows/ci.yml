@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/level10
+  SESSION_SECRET: ci-session-secret
+
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -22,8 +30,6 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
-    env:
-      DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/level10
     defaults:
       run:
         working-directory: server
@@ -32,3 +38,72 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: uv run pytest -v
+      - name: Rules report matches rules_report.json
+        run: ../tools/report.sh | diff - ../rules_report.json
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: astral-sh/setup-uv@v6
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: API types match the server
+        run: |
+          (cd ../server && uv sync --locked)
+          bash ../tools/web-api-types.sh
+          git diff --exit-code src/lib/api/schema.d.ts
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: level10
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d level10"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+        working-directory: server
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure
+          path: |
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7
